@@ -103,15 +103,50 @@ lib/
     utils/
 ```
 
+## Estado actual (Fase 1)
+
+Hecho y compilando (APK debug):
+- Tema neumórfico claro/oscuro, tipografía Inter, paletas definidas arriba
+- Isar (`isar_community` 3.3.2), CRUD de notas, papelera con restaurar/eliminar/vaciar
+- Editor Quill con imágenes, auto-guardado con debounce de 500 ms e indicador (spinner / palomita tocable)
+- Navegación: bottom nav (Notas / Categorías / Papelera), búsqueda y ajustes desde el AppBar
+- Punto de calor opcional por nota (selector de 4 colores)
+
+## Pendientes y bugs conocidos
+
+### Lógica de carpetas y tags (prioridad alta)
+Hoy Categorías solo permite crear, renombrar y borrar; no están conectadas a las notas.
+- Asignar carpeta y tags a una nota desde el editor
+- Relación nota -> carpeta (una) y nota -> tags (varias); definir si se guarda con `IsarLinks` o con ids
+- Filtrar la lista de notas por carpeta o tag al tocarla en Categorías
+- Al borrar una carpeta o tag, desasignarlo de las notas que lo usan
+- Contador de notas por carpeta/tag
+- Resolver si "Categorías" sigue unificando ambos conceptos o se separan en dos pestañas internas
+
+### Otros pendientes de Fase 1
+- Papelera: auto-borrado a los 30 días (hoy solo manual)
+- Búsqueda: usar el índice de Isar en vez del filtro en memoria
+- Mantener pulsado en una nota de la papelera no hace nada
+- Verificar en dispositivo real el flujo completo (crear, editar, reabrir, imágenes)
+
+### Ruido de logcat (no es un bug)
+Los mensajes `InputConnectionAdaptor: The input method toggled cursor monitoring on/off` e
+`ImeTracker ... onCancelled` los emite el teclado de Android al enfocar el editor.
+No indican fallo y no se pueden silenciar desde la app; se filtran con `adb logcat -s flutter`.
+
+## Bugs resueltos
+
+- Nota que no se guardaba al reabrirla y añadir texto: al re-guardar se creaba un `NoteEntity` nuevo
+  sin `createdAt` (campo `late`), Isar lanzaba una excepción y el `catch` la ocultaba.
+  Ahora se parte de la nota existente y el error se registra con `debugPrint`.
+- Excepción `!_debugLocked` al vaciar la papelera: los diálogos usaban el `context` equivocado en `Navigator.pop`.
+- Guardado que se detenía tras la primera escritura: reemplazado por debounce real con `Timer`.
+
 ## Próximos pasos
 
-Empezar **Fase 1**:
-1. `flutter create` con bundle id para Android
-2. Agregar dependencias al `pubspec.yaml`
-3. Definir `AppTheme` (light + dark con paletas arriba)
-4. Crear widgets base neumórficos (`NeuCard`, `NeuButton`, `NeuInput`)
-5. Modelos Isar (`Note`, `Folder`, `Tag`)
-6. Pantallas: lista de notas, editor, papelera
+1. Lógica de carpetas y tags (ver arriba)
+2. Cerrar pendientes de Fase 1
+3. Fase 2: pin ya existe; faltan filtros rápidos, vista lista/grid y ordenamiento
 
 ## Convenciones
 
