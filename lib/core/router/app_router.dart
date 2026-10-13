@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/categories/categories_screen.dart';
+import '../../features/folders/folder_detail_screen.dart';
 import '../../features/notes/editor_screen.dart';
 import '../../features/notes/notes_list_screen.dart';
 import '../../features/search/search_screen.dart';
@@ -32,7 +33,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 const NoTransitionPage(child: NotesListScreen()),
           ),
           GoRoute(
-            path: '/categories',
+            path: '/folders',
             pageBuilder: (_, _) =>
                 const NoTransitionPage(child: CategoriesScreen()),
           ),
@@ -45,13 +46,22 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/edit',
         parentNavigatorKey: _rootNavigatorKey,
-        builder: (_, _) => const EditorScreen(),
+        builder: (_, state) => EditorScreen(
+          folderId: int.tryParse(state.uri.queryParameters['folderId'] ?? ''),
+        ),
       ),
       GoRoute(
         path: '/edit/:id',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (_, state) => EditorScreen(
           noteId: int.tryParse(state.pathParameters['id'] ?? ''),
+        ),
+      ),
+      GoRoute(
+        path: '/folders/:id',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (_, state) => FolderDetailScreen(
+          folderId: int.parse(state.pathParameters['id']!),
         ),
       ),
       GoRoute(
@@ -74,7 +84,7 @@ class _ScaffoldWithNav extends StatelessWidget {
   final String location;
 
   int get _index {
-    if (location.startsWith('/categories')) return 1;
+    if (location.startsWith('/folders')) return 1;
     if (location.startsWith('/trash')) return 2;
     return 0;
   }
@@ -91,7 +101,7 @@ class _ScaffoldWithNav extends StatelessWidget {
               context.go('/');
               break;
             case 1:
-              context.go('/categories');
+              context.go('/folders');
               break;
             case 2:
               context.go('/trash');
@@ -107,7 +117,7 @@ class _ScaffoldWithNav extends StatelessWidget {
           BottomNavigationBarItem(
             icon: Icon(Icons.folder_outlined),
             activeIcon: Icon(Icons.folder),
-            label: 'Categorías',
+            label: 'Carpetas',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.delete_outline),

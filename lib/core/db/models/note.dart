@@ -23,5 +23,6 @@ class NoteEntity {
 
   String? accentHex;
 
+  @Index()
   int? categoryId;
 }

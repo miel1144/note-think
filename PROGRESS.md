@@ -109,19 +109,45 @@ Hecho y compilando (APK debug):
 - Tema neumórfico claro/oscuro, tipografía Inter, paletas definidas arriba
 - Isar (`isar_community` 3.3.2), CRUD de notas, papelera con restaurar/eliminar/vaciar
 - Editor Quill con imágenes, auto-guardado con debounce de 500 ms e indicador (spinner / palomita tocable)
-- Navegación: bottom nav (Notas / Categorías / Papelera), búsqueda y ajustes desde el AppBar
+- Navegación: bottom nav (Notas / Carpetas / Papelera), búsqueda y ajustes desde el AppBar
 - Punto de calor opcional por nota (selector de 4 colores)
+- Card de nota muestra `Creada <fecha>` y, si difiere, `editada <fecha>`
+- Toolbar Quill: al seleccionar una herramienta (negrita, cursiva, listas, etc.) los colores
+  se **invierten** (fondo = color de texto, icono = color de fondo) en vez del círculo oscuro
+  por defecto de M3 `IconButton.filled`
+
+### Carpetas (Fase 1 cerrada, sin tags)
+- Pestaña "Carpetas" en el bottom nav (antes "Categorías")
+- Crear / renombrar / eliminar carpeta desde la lista
+- Tocar una carpeta abre `FolderDetailScreen` con sus notas y un FAB para crear
+  una nota dentro (la nueva nota queda asignada a esa carpeta vía `folderId` en la URL)
+- Long-press en una nota → bottom sheet con: Fijar, Cambiar color, **Agregar a carpeta**,
+  Quitar de carpeta (solo si ya está en una), Mover a papelera
+- "Agregar a carpeta" abre un bottom sheet con buscador, lista alfabética de carpetas
+  y la opción "Crear <nombre>" cuando hay texto en el buscador
+- Al eliminar una carpeta, las notas que tenía dentro se conservan y solo se les
+  desasigna `categoryId` (no se borran ni se van a la papelera)
+- `NoteEntity.categoryId` ahora tiene `@Index()` para filtrar eficiente por carpeta
 
 ## Pendientes y bugs conocidos
 
-### Lógica de carpetas y tags (prioridad alta)
-Hoy Categorías solo permite crear, renombrar y borrar; no están conectadas a las notas.
-- Asignar carpeta y tags a una nota desde el editor
-- Relación nota -> carpeta (una) y nota -> tags (varias); definir si se guarda con `IsarLinks` o con ids
-- Filtrar la lista de notas por carpeta o tag al tocarla en Categorías
-- Al borrar una carpeta o tag, desasignarlo de las notas que lo usan
-- Contador de notas por carpeta/tag
-- Resolver si "Categorías" sigue unificando ambos conceptos o se separan en dos pestañas internas
+### Sesión 2026-10-13
+- Card de nota ahora muestra fecha de creación y, si fue editada en otro minuto, fecha de edición
+- Toolbar Quill: las herramientas seleccionadas invierten colores en lugar de usar el círculo oscuro
+  de `IconButton.filled` (M3). Estilo controlado vía `QuillIconTheme` en `QuillSimpleToolbarConfig`
+- Carpetas (sin tags): CRUD de carpetas, detalle de carpeta, asignación de notas vía
+  bottom sheet "Agregar a carpeta" con buscador y crear-en-linea, índice Isar en `categoryId`,
+  desasignación en cascada al borrar carpeta
+- Fix: botón "Crear nueva carpeta" del sheet "Agregar a carpeta" ahora pide el nombre
+  mediante un diálogo cuando el buscador está vacío (antes no hacía nada porque
+  `query.trim()` era `''` y la función salía temprano)
+
+### Otros pendientes de Fase 1
+- Papelera: auto-borrado a los 30 días (hoy solo manual)
+- Búsqueda: usar el índice de Isar en vez del filtro en memoria
+- Mantener pulsado en una nota de la papelera no hace nada
+- Verificar en dispositivo real el flujo completo (crear, editar, reabrir, imágenes)
+- Contador de notas por carpeta (mostrar `N notas` al lado del nombre en la lista)
 
 ### Otros pendientes de Fase 1
 - Papelera: auto-borrado a los 30 días (hoy solo manual)

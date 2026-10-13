@@ -88,6 +88,19 @@ const NoteEntitySchema = CollectionSchema(
         ),
       ],
     ),
+    r'categoryId': IndexSchema(
+      id: -8798048739239305339,
+      name: r'categoryId',
+      unique: false,
+      replace: false,
+      properties: [
+        IndexPropertySchema(
+          name: r'categoryId',
+          type: IndexType.value,
+          caseSensitive: false,
+        ),
+      ],
+    ),
   },
   links: {},
   embeddedSchemas: {},
@@ -221,6 +234,14 @@ extension NoteEntityQueryWhereSort
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         const IndexWhereClause.any(indexName: r'bodyPlain'),
+      );
+    });
+  }
+
+  QueryBuilder<NoteEntity, NoteEntity, QAfterWhere> anyCategoryId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        const IndexWhereClause.any(indexName: r'categoryId'),
       );
     });
   }
@@ -596,6 +617,133 @@ extension NoteEntityQueryWhere
               IndexWhereClause.lessThan(indexName: r'bodyPlain', upper: ['']),
             );
       }
+    });
+  }
+
+  QueryBuilder<NoteEntity, NoteEntity, QAfterWhereClause> categoryIdIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'categoryId', value: [null]),
+      );
+    });
+  }
+
+  QueryBuilder<NoteEntity, NoteEntity, QAfterWhereClause>
+  categoryIdIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'categoryId',
+          lower: [null],
+          includeLower: false,
+          upper: [],
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<NoteEntity, NoteEntity, QAfterWhereClause> categoryIdEqualTo(
+    int? categoryId,
+  ) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'categoryId', value: [categoryId]),
+      );
+    });
+  }
+
+  QueryBuilder<NoteEntity, NoteEntity, QAfterWhereClause> categoryIdNotEqualTo(
+    int? categoryId,
+  ) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'categoryId',
+                lower: [],
+                upper: [categoryId],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'categoryId',
+                lower: [categoryId],
+                includeLower: false,
+                upper: [],
+              ),
+            );
+      } else {
+        return query
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'categoryId',
+                lower: [categoryId],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'categoryId',
+                lower: [],
+                upper: [categoryId],
+                includeUpper: false,
+              ),
+            );
+      }
+    });
+  }
+
+  QueryBuilder<NoteEntity, NoteEntity, QAfterWhereClause> categoryIdGreaterThan(
+    int? categoryId, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'categoryId',
+          lower: [categoryId],
+          includeLower: include,
+          upper: [],
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<NoteEntity, NoteEntity, QAfterWhereClause> categoryIdLessThan(
+    int? categoryId, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'categoryId',
+          lower: [],
+          upper: [categoryId],
+          includeUpper: include,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<NoteEntity, NoteEntity, QAfterWhereClause> categoryIdBetween(
+    int? lowerCategoryId,
+    int? upperCategoryId, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'categoryId',
+          lower: [lowerCategoryId],
+          includeLower: includeLower,
+          upper: [upperCategoryId],
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 }

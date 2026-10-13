@@ -16,8 +16,9 @@ import '../../core/storage/repositories.dart';
 enum SaveStatus { pristine, dirty, saving, saved, error }
 
 class EditorScreen extends ConsumerStatefulWidget {
-  const EditorScreen({super.key, this.noteId});
+  const EditorScreen({super.key, this.noteId, this.folderId});
   final int? noteId;
+  final int? folderId;
 
   @override
   ConsumerState<EditorScreen> createState() => _EditorScreenState();
@@ -139,7 +140,8 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     note
       ..title = titleInput.isEmpty ? _autoTitleFrom(plain) : titleInput
       ..bodyDelta = jsonEncode(delta.toJson())
-      ..bodyPlain = plain;
+      ..bodyPlain = plain
+      ..categoryId = existing?.categoryId ?? widget.folderId;
     final newId = await repo.upsert(note);
     _id ??= newId;
   }
@@ -178,6 +180,33 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     _editorFocus.dispose();
     _titleFocus.dispose();
     super.dispose();
+  }
+
+  QuillIconTheme _buildToolbarIconTheme(ThemeData theme) {
+    final text = theme.colorScheme.onSurface;
+    final background = theme.scaffoldBackgroundColor;
+    final muted = text.withValues(alpha: 0.6);
+
+    return QuillIconTheme(
+      iconButtonUnselectedData: IconButtonData(
+        color: muted,
+        style: IconButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          foregroundColor: muted,
+          shape: const CircleBorder(),
+          padding: const EdgeInsets.all(8),
+        ),
+      ),
+      iconButtonSelectedData: IconButtonData(
+        color: background,
+        style: IconButton.styleFrom(
+          backgroundColor: text,
+          foregroundColor: background,
+          shape: const CircleBorder(),
+          padding: const EdgeInsets.all(8),
+        ),
+      ),
+    );
   }
 
   @override
@@ -239,6 +268,12 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                       showSuperscript: false,
                       showFontFamily: false,
                       showFontSize: false,
+                      color: theme.scaffoldBackgroundColor,
+                      buttonOptions: QuillSimpleToolbarButtonOptions(
+                        base: QuillToolbarBaseButtonOptions(
+                          iconTheme: _buildToolbarIconTheme(theme),
+                        ),
+                      ),
                       embedButtons: FlutterQuillEmbeds.toolbarButtons(
                         imageButtonOptions: QuillToolbarImageButtonOptions(
                           imageButtonConfig: QuillToolbarImageConfig(

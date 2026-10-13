@@ -8,6 +8,9 @@ final notesRepositoryProvider = Provider<NotesRepository>(
   (ref) => NotesRepository(IsarService.instance.isar),
 );
 
-final categoriesRepositoryProvider = Provider<CategoriesRepository>(
-  (ref) => CategoriesRepository(IsarService.instance.isar),
+final foldersRepositoryProvider = Provider<FoldersRepository>(
+  (ref) => FoldersRepository(
+    IsarService.instance.isar,
+    ref.watch(notesRepositoryProvider),
+  ),
 );

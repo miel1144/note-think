@@ -7,6 +7,7 @@ import '../../core/storage/repositories.dart';
 import '../../core/db/models/note.dart';
 import '../../shared/widgets/neu_surface.dart';
 import '../../shared/widgets/note_card.dart';
+import '../folders/folder_picker_sheet.dart';
 import 'notes_providers.dart';
 
 class NotesListScreen extends ConsumerWidget {
@@ -98,6 +99,30 @@ class NotesListScreen extends ConsumerWidget {
                   _pickColor(context, ref, note);
                 },
               ),
+              ListTile(
+                leading: const Icon(Icons.create_new_folder_outlined),
+                title: const Text('Agregar a carpeta'),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  showFolderPickerSheet(
+                    context,
+                    ref,
+                    noteId: note.id,
+                    currentCategoryId: note.categoryId,
+                  );
+                },
+              ),
+              if (note.categoryId != null)
+                ListTile(
+                  leading: const Icon(Icons.folder_off_outlined),
+                  title: const Text('Quitar de carpeta'),
+                  onTap: () {
+                    ref
+                        .read(notesRepositoryProvider)
+                        .setCategory(note.id, null);
+                    Navigator.pop(sheetContext);
+                  },
+                ),
               ListTile(
                 leading: const Icon(Icons.delete_outline),
                 title: const Text('Mover a papelera'),

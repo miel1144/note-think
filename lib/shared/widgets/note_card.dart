@@ -72,12 +72,7 @@ class NoteCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 10),
-              Text(
-                _formatDate(note.updatedAt),
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.45),
-                ),
-              ),
+              _DateLine(createdAt: note.createdAt, updatedAt: note.updatedAt),
             ],
           ),
         ],
@@ -103,6 +98,50 @@ class NoteCard extends StatelessWidget {
       return '$hh:$mm';
     }
     return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+  }
+}
+
+class _DateLine extends StatelessWidget {
+  const _DateLine({required this.createdAt, required this.updatedAt});
+
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final base = theme.textTheme.labelSmall?.copyWith(
+      color: theme.colorScheme.onSurface.withValues(alpha: 0.45),
+    );
+    final created = NoteCard._formatDate(createdAt);
+    final updated = NoteCard._formatDate(updatedAt);
+    final edited = !_sameMinute(createdAt, updatedAt);
+
+    return Wrap(
+      spacing: 6,
+      runSpacing: 2,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        Text('Creada $created', style: base),
+        if (edited) ...[
+          Text(
+            '·',
+            style: base?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.35),
+            ),
+          ),
+          Text('editada $updated', style: base),
+        ],
+      ],
+    );
+  }
+
+  static bool _sameMinute(DateTime a, DateTime b) {
+    return a.year == b.year &&
+        a.month == b.month &&
+        a.day == b.day &&
+        a.hour == b.hour &&
+        a.minute == b.minute;
   }
 }
 

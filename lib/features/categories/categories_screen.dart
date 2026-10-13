@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/db/models/category.dart';
 import '../../core/storage/repositories.dart';
@@ -11,71 +12,51 @@ class CategoriesScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final catsAsync = ref.watch(categoriesListProvider);
+    final foldersAsync = ref.watch(foldersListProvider);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Categorías'),
+        title: const Text('Carpetas'),
         actions: [
           IconButton(
             tooltip: 'Nueva carpeta',
             icon: const Icon(Icons.create_new_folder_outlined),
-            onPressed: () => _addCategory(context, ref, isTag: false),
-          ),
-          IconButton(
-            tooltip: 'Nuevo tag',
-            icon: const Icon(Icons.label_outline),
-            onPressed: () => _addCategory(context, ref, isTag: true),
+            onPressed: () => _addFolder(context, ref),
           ),
           const SizedBox(width: 4),
         ],
       ),
-      body: catsAsync.when(
+      body: foldersAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Error: $e')),
         data: (list) {
-          if (list.isEmpty) {
-            return const _EmptyCategories();
-          }
-          return ListView(
+          if (list.isEmpty) return const _EmptyFolders();
+          return ListView.separated(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
-            children: [
-              const _SectionLabel('Carpetas'),
-              for (final c in list.where((e) => !e.isTag))
-                _CategoryTile(
-                  category: c,
-                  onEdit: () => _rename(context, ref, c),
-                  onDelete: () => _delete(context, ref, c),
-                ),
-              const SizedBox(height: 16),
-              const _SectionLabel('Tags'),
-              for (final c in list.where((e) => e.isTag))
-                _CategoryTile(
-                  category: c,
-                  onEdit: () => _rename(context, ref, c),
-                  onDelete: () => _delete(context, ref, c),
-                ),
-            ],
+            itemCount: list.length,
+            separatorBuilder: (_, _) => const SizedBox(height: 10),
+            itemBuilder: (_, i) => _FolderTile(
+              folder: list[i],
+              onTap: () => context.push('/folders/${list[i].id}'),
+              onRename: () => _rename(context, ref, list[i]),
+              onDelete: () => _delete(context, ref, list[i]),
+            ),
           );
         },
       ),
     );
   }
 
-  Future<void> _addCategory(
-    BuildContext context,
-    WidgetRef ref, {
-    required bool isTag,
-  }) async {
+  Future<void> _addFolder(BuildContext context, WidgetRef ref) async {
     final ctrl = TextEditingController();
     final name = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text(isTag ? 'Nuevo tag' : 'Nueva carpeta'),
+        title: const Text('Nueva carpeta'),
         content: TextField(
           controller: ctrl,
           autofocus: true,
-          decoration: InputDecoration(
-            hintText: isTag ? 'Nombre del tag' : 'Nombre de la carpeta',
+          decoration: const InputDecoration(
+            hintText: 'Nombre de la carpeta',
           ),
           onSubmitted: (v) => Navigator.pop(dialogContext, v),
         ),
@@ -92,7 +73,7 @@ class CategoriesScreen extends ConsumerWidget {
       ),
     );
     if (name != null && name.trim().isNotEmpty) {
-      await ref.read(categoriesRepositoryProvider).create(name, isTag: isTag);
+      await ref.read(foldersRepositoryProvider).create(name);
     }
   }
 
@@ -124,7 +105,7 @@ class CategoriesScreen extends ConsumerWidget {
       ),
     );
     if (name != null && name.trim().isNotEmpty) {
-      await ref.read(categoriesRepositoryProvider).rename(c.id, name);
+      await ref.read(foldersRepositoryProvider).rename(c.id, name);
     }
   }
 
@@ -136,7 +117,10 @@ class CategoriesScreen extends ConsumerWidget {
     final ok = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text('¿Eliminar ${c.isTag ? 'tag' : 'carpeta'} "${c.name}"?'),
+        title: Text('¿Eliminar carpeta "${c.name}"?'),
+        content: const Text(
+          'Las notas dentro de esta carpeta se conservarán, pero dejarán de estar en ella.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
@@ -150,80 +134,70 @@ class CategoriesScreen extends ConsumerWidget {
       ),
     );
     if (ok == true) {
-      await ref.read(categoriesRepositoryProvider).delete(c.id);
+      await ref.read(foldersRepositoryProvider).delete(c.id);
     }
   }
 }
 
-class _SectionLabel extends StatelessWidget {
-  const _SectionLabel(this.text);
-  final String text;
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 4, 4, 8),
-      child: Text(
-        text,
-        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-          color: Theme.of(context).colorScheme.onSurface
-              .withValues(alpha: 0.55),
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.4,
-        ),
-      ),
-    );
-  }
-}
-
-class _CategoryTile extends StatelessWidget {
-  const _CategoryTile({
-    required this.category,
-    required this.onEdit,
+class _FolderTile extends StatelessWidget {
+  const _FolderTile({
+    required this.folder,
+    required this.onTap,
+    required this.onRename,
     required this.onDelete,
   });
-  final CategoryEntity category;
-  final VoidCallback onEdit;
+  final CategoryEntity folder;
+  final VoidCallback onTap;
+  final VoidCallback onRename;
   final VoidCallback onDelete;
+
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: NeuSurface(
-        radius: 18,
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-        onTap: onEdit,
-        child: Row(
-          children: [
-            Icon(
-              category.isTag ? Icons.label_outline : Icons.folder_outlined,
-              color: Theme.of(context).colorScheme.onSurface
-                  .withValues(alpha: 0.7),
+    return NeuSurface(
+      radius: 18,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      onTap: onTap,
+      onLongPress: onRename,
+      child: Row(
+        children: [
+          const SizedBox(width: 10),
+          Icon(
+            Icons.folder_outlined,
+            color: Theme.of(context).colorScheme.onSurface.withValues(
+              alpha: 0.7,
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                category.name,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              folder.name,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
               ),
             ),
-            IconButton(
-              icon: const Icon(Icons.delete_outline, size: 20),
-              onPressed: onDelete,
-            ),
-          ],
-        ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.edit_outlined, size: 20),
+            tooltip: 'Renombrar',
+            onPressed: onRename,
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete_outline, size: 20),
+            tooltip: 'Eliminar',
+            onPressed: onDelete,
+          ),
+        ],
       ),
     );
   }
 }
 
-class _EmptyCategories extends StatelessWidget {
-  const _EmptyCategories();
+class _EmptyFolders extends StatelessWidget {
+  const _EmptyFolders();
   @override
   Widget build(BuildContext context) {
+    final t = Theme.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 40),
@@ -233,18 +207,21 @@ class _EmptyCategories extends StatelessWidget {
             Icon(
               Icons.folder_outlined,
               size: 64,
-              color: Theme.of(context).colorScheme.onSurface
-                  .withValues(alpha: 0.3),
+              color: t.colorScheme.onSurface.withValues(alpha: 0.3),
             ),
             const SizedBox(height: 12),
-            const Text('Aún no hay carpetas ni tags'),
+            Text(
+              'Aún no hay carpetas',
+              style: t.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
             const SizedBox(height: 6),
             Text(
-              'Crea una carpeta para agrupar notas, o un tag para clasificarlas.',
+              'Crea una carpeta desde el botón de arriba para agrupar tus notas.',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurface
-                    .withValues(alpha: 0.6),
+              style: t.textTheme.bodyMedium?.copyWith(
+                color: t.colorScheme.onSurface.withValues(alpha: 0.6),
               ),
             ),
           ],

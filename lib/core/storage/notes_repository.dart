@@ -52,6 +52,17 @@ class NotesRepository {
     return query.watch(fireImmediately: true);
   }
 
+  Stream<List<NoteEntity>> watchByCategory(int categoryId) {
+    final query = _col
+        .filter()
+        .deletedAtIsNull()
+        .categoryIdEqualTo(categoryId)
+        .sortByPinnedDesc()
+        .thenByUpdatedAtDesc()
+        .build();
+    return query.watch(fireImmediately: true);
+  }
+
   Stream<List<NoteEntity>> watchTrash() {
     final query = _col
         .filter()
@@ -69,6 +80,29 @@ class NotesRepository {
       note.createdAt = note.updatedAt;
     }
     return _isar.writeTxn(() => _col.put(note));
+  }
+
+  Future<void> setCategory(int noteId, int? categoryId) async {
+    await _isar.writeTxn(() async {
+      final n = await _col.get(noteId);
+      if (n == null) return;
+      n.categoryId = categoryId;
+      n.updatedAt = DateTime.now();
+      await _col.put(n);
+    });
+  }
+
+  Future<void> unsetCategoryForDeleted(int categoryId) async {
+    await _isar.writeTxn(() async {
+      final notes = await _col
+          .filter()
+          .categoryIdEqualTo(categoryId)
+          .findAll();
+      for (final n in notes) {
+        n.categoryId = null;
+        await _col.put(n);
+      }
+    });
   }
 
   Future<void> softDelete(int id) async {
