@@ -181,6 +181,30 @@ Hecho y compilando (APK debug):
 - Filtros son **de sesión** (no persisten al cerrar la app) — más simple y suficiente
   para Fase 2. Si se quiere persistir, candidato natural: `shared_preferences`.
 
+### Fase 2 — Toggle lista/grid (2026-10-14)
+- Nuevo módulo `lib/features/notes/notes_layout.dart`:
+  - `enum NotesLayout { list, grid }`
+  - `NotesLayoutController` (`AsyncNotifier<NotesLayout>`) carga y guarda la preferencia
+    en `shared_preferences` bajo la clave `notes.listLayout`. Default: `list`.
+  - `notesLayoutProvider` expone el estado; `toggle()` cambia entre los dos.
+- `NoteCard`: nuevo parámetro opcional `compact: bool`. En modo compacto:
+  - Padding reducido (14/12/14/12 vs 18/16/18/18)
+  - Título `titleSmall` en vez de `titleMedium`
+  - Preview a 1 línea (vs 2) y `bodySmall` (vs `bodyMedium`)
+  - Fecha de edición oculta (solo "Creada …") para ahorrar altura
+  - Heat point de 80×80 (vs 120×120) para no robarle espacio al texto
+- `NotesListScreen`:
+  - Botón nuevo en el AppBar entre "Buscar" y "Más": icono dinámico
+    (`grid_view_outlined` cuando está en lista → invita a cambiar a grid;
+    `view_agenda_outlined` cuando está en grid → invita a volver a lista)
+    con tooltip contextual.
+  - Body refactorizado: extraídos `_NotesList` y `_NotesGrid` a widgets privados
+    que reciben las notas + callbacks. `_NotesGrid` usa
+    `SliverGridDelegateWithMaxCrossAxisExtent(200)` para que se adapte al ancho
+    de pantalla (1 col muy estrecho, 2 cols estándar, 3+ en tablets).
+- La preferencia **persiste** entre arranques de la app (a diferencia de los filtros,
+  que son de sesión).
+
 ### Pendientes de Fase 1
 - _(ninguno — verificado en dispositivo real el 2026-10-14)_
 
@@ -209,8 +233,8 @@ No indican fallo y no se pueden silenciar desde la app; se filtran con `adb logc
 
 ## Próximos pasos
 
-1. **Fase 2 (continuación)**: vista lista/grid toggleable, ordenamiento flexible
-2. Validar filtros rápidos en dispositivo real y commitear
+1. **Fase 2 (continuación)**: ordenamiento flexible (modificación, creación, título, color)
+2. Validar toggle lista/grid en dispositivo real y commitear
 
 ## Convenciones
 

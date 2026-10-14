@@ -10,11 +10,13 @@ class NoteCard extends StatelessWidget {
     required this.note,
     required this.onTap,
     this.onLongPress,
+    this.compact = false,
   });
 
   final NoteEntity note;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -25,12 +27,15 @@ class NoteCard extends StatelessWidget {
 
     return NeuSurface(
       radius: 22,
-      padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
+      padding: compact
+          ? const EdgeInsets.fromLTRB(14, 12, 14, 12)
+          : const EdgeInsets.fromLTRB(18, 16, 18, 18),
       onTap: onTap,
       onLongPress: onLongPress,
       child: Stack(
         children: [
-          if (accent != null) _HeatPoint(color: accent),
+          if (accent != null)
+            _HeatPoint(color: accent, size: compact ? 80 : 120),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -42,7 +47,7 @@ class NoteCard extends StatelessWidget {
                       padding: const EdgeInsets.only(right: 6),
                       child: Icon(
                         Icons.push_pin,
-                        size: 14,
+                        size: compact ? 12 : 14,
                         color: theme.colorScheme.onSurface.withValues(
                           alpha: 0.55,
                         ),
@@ -51,9 +56,12 @@ class NoteCard extends StatelessWidget {
                   Expanded(
                     child: Text(
                       title,
-                      maxLines: 1,
+                      maxLines: compact ? 1 : 1,
                       overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleMedium?.copyWith(
+                      style: (compact
+                              ? theme.textTheme.titleSmall
+                              : theme.textTheme.titleMedium)
+                          ?.copyWith(
                         fontWeight: FontWeight.w700,
                         letterSpacing: -0.2,
                       ),
@@ -61,18 +69,25 @@ class NoteCard extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 6),
+              SizedBox(height: compact ? 4 : 6),
               Text(
                 preview,
-                maxLines: 2,
+                maxLines: compact ? 1 : 2,
                 overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodyMedium?.copyWith(
+                style: (compact
+                        ? theme.textTheme.bodySmall
+                        : theme.textTheme.bodyMedium)
+                    ?.copyWith(
                   color: theme.colorScheme.onSurface.withValues(alpha: 0.65),
-                  height: 1.35,
+                  height: 1.3,
                 ),
               ),
-              const SizedBox(height: 10),
-              _DateLine(createdAt: note.createdAt, updatedAt: note.updatedAt),
+              SizedBox(height: compact ? 6 : 10),
+              _DateLine(
+                createdAt: note.createdAt,
+                updatedAt: note.updatedAt,
+                showEdited: !compact,
+              ),
             ],
           ),
         ],
@@ -102,10 +117,15 @@ class NoteCard extends StatelessWidget {
 }
 
 class _DateLine extends StatelessWidget {
-  const _DateLine({required this.createdAt, required this.updatedAt});
+  const _DateLine({
+    required this.createdAt,
+    required this.updatedAt,
+    required this.showEdited,
+  });
 
   final DateTime createdAt;
   final DateTime updatedAt;
+  final bool showEdited;
 
   @override
   Widget build(BuildContext context) {
@@ -115,7 +135,7 @@ class _DateLine extends StatelessWidget {
     );
     final created = NoteCard._formatDate(createdAt);
     final updated = NoteCard._formatDate(updatedAt);
-    final edited = !_sameMinute(createdAt, updatedAt);
+    final edited = showEdited && !_sameMinute(createdAt, updatedAt);
 
     return Wrap(
       spacing: 6,
@@ -146,8 +166,9 @@ class _DateLine extends StatelessWidget {
 }
 
 class _HeatPoint extends StatelessWidget {
-  const _HeatPoint({required this.color});
+  const _HeatPoint({required this.color, this.size = 120});
   final Color color;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
@@ -158,8 +179,8 @@ class _HeatPoint extends StatelessWidget {
           child: Align(
             alignment: Alignment.topRight,
             child: Container(
-              width: 120,
-              height: 120,
+              width: size,
+              height: size,
               decoration: BoxDecoration(
                 gradient: RadialGradient(
                   center: Alignment.topRight,

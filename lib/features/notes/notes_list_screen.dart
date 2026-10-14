@@ -10,6 +10,7 @@ import '../../shared/widgets/note_card.dart';
 import '../folders/folder_picker_sheet.dart';
 import 'filter_bar.dart';
 import 'notes_filter.dart';
+import 'notes_layout.dart';
 
 class NotesListScreen extends ConsumerWidget {
   const NotesListScreen({super.key});
@@ -18,6 +19,7 @@ class NotesListScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final notesAsync = ref.watch(filteredNotesProvider);
     final filter = ref.watch(notesFilterProvider);
+    final layout = ref.watch(notesLayoutProvider).value ?? NotesLayout.list;
 
     return Scaffold(
       appBar: AppBar(
@@ -27,6 +29,17 @@ class NotesListScreen extends ConsumerWidget {
             icon: Icons.search,
             tooltip: 'Buscar',
             onPressed: () => context.push('/search'),
+          ),
+          const SizedBox(width: 6),
+          NeuIconButton(
+            icon: layout == NotesLayout.list
+                ? Icons.grid_view_outlined
+                : Icons.view_agenda_outlined,
+            tooltip: layout == NotesLayout.list
+                ? 'Vista en cuadrícula'
+                : 'Vista en lista',
+            onPressed: () =>
+                ref.read(notesLayoutProvider.notifier).toggle(),
           ),
           const SizedBox(width: 6),
           PopupMenuButton<String>(
@@ -62,15 +75,17 @@ class NotesListScreen extends ConsumerWidget {
                         )
                       : const _EmptyState();
                 }
-                return ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
-                  itemCount: notes.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 12),
-                  itemBuilder: (_, i) => NoteCard(
-                    note: notes[i],
-                    onTap: () => context.push('/edit/${notes[i].id}'),
-                    onLongPress: () => _showActions(context, ref, notes[i]),
-                  ),
+                if (layout == NotesLayout.grid) {
+                  return _NotesGrid(
+                    notes: notes,
+                    onTap: (n) => context.push('/edit/${n.id}'),
+                    onLongPress: (n) => _showActions(context, ref, n),
+                  );
+                }
+                return _NotesList(
+                  notes: notes,
+                  onTap: (n) => context.push('/edit/${n.id}'),
+                  onLongPress: (n) => _showActions(context, ref, n),
                 );
               },
             ),
@@ -343,6 +358,64 @@ class _EmptyFilteredState extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _NotesList extends StatelessWidget {
+  const _NotesList({
+    required this.notes,
+    required this.onTap,
+    required this.onLongPress,
+  });
+
+  final List<NoteEntity> notes;
+  final void Function(NoteEntity) onTap;
+  final void Function(NoteEntity) onLongPress;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
+      itemCount: notes.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 12),
+      itemBuilder: (_, i) => NoteCard(
+        note: notes[i],
+        onTap: () => onTap(notes[i]),
+        onLongPress: () => onLongPress(notes[i]),
+      ),
+    );
+  }
+}
+
+class _NotesGrid extends StatelessWidget {
+  const _NotesGrid({
+    required this.notes,
+    required this.onTap,
+    required this.onLongPress,
+  });
+
+  final List<NoteEntity> notes;
+  final void Function(NoteEntity) onTap;
+  final void Function(NoteEntity) onLongPress;
+
+  @override
+  Widget build(BuildContext context) {
+    return GridView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 200,
+        mainAxisSpacing: 12,
+        crossAxisSpacing: 12,
+        childAspectRatio: 0.95,
+      ),
+      itemCount: notes.length,
+      itemBuilder: (_, i) => NoteCard(
+        note: notes[i],
+        compact: true,
+        onTap: () => onTap(notes[i]),
+        onLongPress: () => onLongPress(notes[i]),
       ),
     );
   }
