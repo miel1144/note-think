@@ -8,6 +8,7 @@ import '../../shared/widgets/note_card.dart';
 import '../categories/categories_providers.dart';
 import '../notes/note_share.dart';
 import '../notes/notes_providers.dart';
+import '../private_notes/private_notes_controller.dart';
 
 class FolderDetailScreen extends ConsumerWidget {
   const FolderDetailScreen({super.key, required this.folderId});
@@ -151,6 +152,21 @@ class FolderDetailScreen extends ConsumerWidget {
                   );
                 },
               ),
+              if (ref.watch(privateNotesProvider).hasPassword)
+                ListTile(
+                  leading: Icon(
+                    note.isPrivate ? Icons.lock_open : Icons.lock_outline,
+                  ),
+                  title: Text(
+                    note.isPrivate ? 'Quitar de privadas' : 'Marcar como privada',
+                  ),
+                  onTap: () {
+                    ref
+                        .read(notesRepositoryProvider)
+                        .setPrivate(note.id, !note.isPrivate);
+                    Navigator.pop(sheetContext);
+                  },
+                ),
               ListTile(
                 leading: const Icon(Icons.delete_outline),
                 title: const Text('Mover a papelera'),

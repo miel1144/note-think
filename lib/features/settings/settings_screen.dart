@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/neu_surface.dart';
+import '../private_notes/password_dialog.dart';
+import '../private_notes/private_notes_controller.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -10,6 +12,7 @@ class SettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final mode = ref.watch(themeModeProvider);
+    final privateState = ref.watch(privateNotesProvider);
     return Scaffold(
       appBar: AppBar(title: const Text('Ajustes')),
       body: ListView(
@@ -41,12 +44,10 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 24),
+          const _SectionLabel('Notas privadas'),
+          _PrivateNotesTile(state: privateState),
+          const SizedBox(height: 24),
           const _SectionLabel('Próximamente'),
-          const _SettingTile(
-            title: 'Bloqueo con biometría',
-            subtitle: 'Disponible en una próxima fase',
-            leading: Icons.fingerprint,
-          ),
           const _SettingTile(
             title: 'Recordatorios',
             subtitle: 'Disponible en una próxima fase',
@@ -67,6 +68,128 @@ class SettingsScreen extends ConsumerWidget {
     ThemeMode.light => 'Claro',
     ThemeMode.dark => 'Oscuro',
   };
+}
+
+class _PrivateNotesTile extends ConsumerWidget {
+  const _PrivateNotesTile({required this.state});
+  final PrivateNotesState state;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final messenger = ScaffoldMessenger.of(context);
+    if (!state.hasPassword) {
+      return _SettingTile(
+        title: 'Activar notas privadas',
+        subtitle:
+            'Establece una palabra clave para proteger notas individualmente',
+        leading: Icons.lock_outline,
+        onTap: () async {
+          final result = await showPasswordDialog(
+            context,
+            ref,
+            mode: PasswordDialogMode.set,
+          );
+          if (!context.mounted) return;
+          if (result.success) {
+            messenger.showSnackBar(
+              const SnackBar(content: Text('Notas privadas activadas')),
+            );
+          }
+        },
+      );
+    }
+    return Column(
+      children: [
+        _SettingTile(
+          title: 'Notas privadas',
+          subtitle: state.isUnlocked
+              ? 'Activadas · sesión desbloqueada'
+              : 'Activadas · pulsa para desbloquear',
+          leading: Icons.lock,
+          onTap: () async {
+            if (state.isUnlocked) {
+              ref.read(privateNotesProvider.notifier).lock();
+              return;
+            }
+            final result = await showPasswordDialog(
+              context,
+              ref,
+              mode: PasswordDialogMode.verify,
+            );
+            if (!context.mounted) return;
+            if (!result.success && result.message != null) {
+              messenger.showSnackBar(
+                SnackBar(content: Text(result.message!)),
+              );
+            }
+          },
+          trailing: state.isUnlocked
+              ? const Icon(Icons.lock_open, size: 18)
+              : const Icon(Icons.lock, size: 18),
+        ),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () async {
+                  final result = await showPasswordDialog(
+                    context,
+                    ref,
+                    mode: PasswordDialogMode.change,
+                  );
+                  if (!context.mounted) return;
+                  if (result.success) {
+                    messenger.showSnackBar(
+                      const SnackBar(
+                        content: Text('Palabra clave actualizada'),
+                      ),
+                    );
+                  } else if (result.message != null) {
+                    messenger.showSnackBar(
+                      SnackBar(content: Text(result.message!)),
+                    );
+                  }
+                },
+                icon: const Icon(Icons.key, size: 16),
+                label: const Text('Cambiar clave'),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () async {
+                  final result = await showPasswordDialog(
+                    context,
+                    ref,
+                    mode: PasswordDialogMode.verify,
+                    title: 'Quitar notas privadas',
+                  );
+                  if (!context.mounted) return;
+                  if (result.success) {
+                    ref
+                        .read(privateNotesProvider.notifier)
+                        .removeAfterVerified();
+                    messenger.showSnackBar(
+                      const SnackBar(
+                        content: Text('Notas privadas desactivadas'),
+                      ),
+                    );
+                  } else if (result.message != null) {
+                    messenger.showSnackBar(
+                      SnackBar(content: Text(result.message!)),
+                    );
+                  }
+                },
+                icon: const Icon(Icons.lock_open, size: 16),
+                label: const Text('Desactivar'),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
 }
 
 class _SectionLabel extends StatelessWidget {
@@ -95,11 +218,13 @@ class _SettingTile extends StatelessWidget {
     required this.subtitle,
     required this.leading,
     this.trailing,
+    this.onTap,
   });
   final String title;
   final String subtitle;
   final IconData leading;
   final Widget? trailing;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -108,6 +233,7 @@ class _SettingTile extends StatelessWidget {
       child: NeuSurface(
         radius: 18,
         padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+        onTap: onTap,
         child: Row(
           children: [
             Icon(

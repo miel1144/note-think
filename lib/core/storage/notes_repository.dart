@@ -151,6 +151,16 @@ class NotesRepository {
     });
   }
 
+  Future<void> setPrivate(int id, bool isPrivate) async {
+    await _isar.writeTxn(() async {
+      final n = await _col.get(id);
+      if (n == null) return;
+      n.isPrivate = isPrivate;
+      n.updatedAt = DateTime.now();
+      await _col.put(n);
+    });
+  }
+
   Future<void> emptyTrash() async {
     await _isar.writeTxn(() async {
       await _col.filter().deletedAtIsNotNull().deleteAll();

@@ -47,10 +47,15 @@ const NoteEntitySchema = CollectionSchema(
       name: r'deletedAt',
       type: IsarType.dateTime,
     ),
-    r'pinned': PropertySchema(id: 6, name: r'pinned', type: IsarType.bool),
-    r'title': PropertySchema(id: 7, name: r'title', type: IsarType.string),
+    r'isPrivate': PropertySchema(
+      id: 6,
+      name: r'isPrivate',
+      type: IsarType.bool,
+    ),
+    r'pinned': PropertySchema(id: 7, name: r'pinned', type: IsarType.bool),
+    r'title': PropertySchema(id: 8, name: r'title', type: IsarType.string),
     r'updatedAt': PropertySchema(
-      id: 8,
+      id: 9,
       name: r'updatedAt',
       type: IsarType.dateTime,
     ),
@@ -147,9 +152,10 @@ void _noteEntitySerialize(
   writer.writeLong(offsets[3], object.categoryId);
   writer.writeDateTime(offsets[4], object.createdAt);
   writer.writeDateTime(offsets[5], object.deletedAt);
-  writer.writeBool(offsets[6], object.pinned);
-  writer.writeString(offsets[7], object.title);
-  writer.writeDateTime(offsets[8], object.updatedAt);
+  writer.writeBool(offsets[6], object.isPrivate);
+  writer.writeBool(offsets[7], object.pinned);
+  writer.writeString(offsets[8], object.title);
+  writer.writeDateTime(offsets[9], object.updatedAt);
 }
 
 NoteEntity _noteEntityDeserialize(
@@ -166,9 +172,10 @@ NoteEntity _noteEntityDeserialize(
   object.createdAt = reader.readDateTime(offsets[4]);
   object.deletedAt = reader.readDateTimeOrNull(offsets[5]);
   object.id = id;
-  object.pinned = reader.readBool(offsets[6]);
-  object.title = reader.readString(offsets[7]);
-  object.updatedAt = reader.readDateTime(offsets[8]);
+  object.isPrivate = reader.readBool(offsets[6]);
+  object.pinned = reader.readBool(offsets[7]);
+  object.title = reader.readString(offsets[8]);
+  object.updatedAt = reader.readDateTime(offsets[9]);
   return object;
 }
 
@@ -194,8 +201,10 @@ P _noteEntityDeserializeProp<P>(
     case 6:
       return (reader.readBool(offset)) as P;
     case 7:
-      return (reader.readString(offset)) as P;
+      return (reader.readBool(offset)) as P;
     case 8:
+      return (reader.readString(offset)) as P;
+    case 9:
       return (reader.readDateTime(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -1520,6 +1529,16 @@ extension NoteEntityQueryFilter
     });
   }
 
+  QueryBuilder<NoteEntity, NoteEntity, QAfterFilterCondition> isPrivateEqualTo(
+    bool value,
+  ) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'isPrivate', value: value),
+      );
+    });
+  }
+
   QueryBuilder<NoteEntity, NoteEntity, QAfterFilterCondition> pinnedEqualTo(
     bool value,
   ) {
@@ -1803,6 +1822,18 @@ extension NoteEntityQuerySortBy
     });
   }
 
+  QueryBuilder<NoteEntity, NoteEntity, QAfterSortBy> sortByIsPrivate() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isPrivate', Sort.asc);
+    });
+  }
+
+  QueryBuilder<NoteEntity, NoteEntity, QAfterSortBy> sortByIsPrivateDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isPrivate', Sort.desc);
+    });
+  }
+
   QueryBuilder<NoteEntity, NoteEntity, QAfterSortBy> sortByPinned() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'pinned', Sort.asc);
@@ -1914,6 +1945,18 @@ extension NoteEntityQuerySortThenBy
     });
   }
 
+  QueryBuilder<NoteEntity, NoteEntity, QAfterSortBy> thenByIsPrivate() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isPrivate', Sort.asc);
+    });
+  }
+
+  QueryBuilder<NoteEntity, NoteEntity, QAfterSortBy> thenByIsPrivateDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isPrivate', Sort.desc);
+    });
+  }
+
   QueryBuilder<NoteEntity, NoteEntity, QAfterSortBy> thenByPinned() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'pinned', Sort.asc);
@@ -1993,6 +2036,12 @@ extension NoteEntityQueryWhereDistinct
     });
   }
 
+  QueryBuilder<NoteEntity, NoteEntity, QDistinct> distinctByIsPrivate() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'isPrivate');
+    });
+  }
+
   QueryBuilder<NoteEntity, NoteEntity, QDistinct> distinctByPinned() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'pinned');
@@ -2055,6 +2104,12 @@ extension NoteEntityQueryProperty
   QueryBuilder<NoteEntity, DateTime?, QQueryOperations> deletedAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'deletedAt');
+    });
+  }
+
+  QueryBuilder<NoteEntity, bool, QQueryOperations> isPrivateProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'isPrivate');
     });
   }
 

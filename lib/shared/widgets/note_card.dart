@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/db/models/note.dart';
+import '../../features/private_notes/private_notes_controller.dart';
 import 'neu_surface.dart';
 
-class NoteCard extends StatelessWidget {
+class NoteCard extends ConsumerWidget {
   const NoteCard({
     super.key,
     required this.note,
@@ -19,11 +21,14 @@ class NoteCard extends StatelessWidget {
   final bool compact;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final accent = AppColors.accentFromHex(note.accentHex);
-    final title = note.title.isEmpty ? 'Sin título' : note.title;
-    final preview = _previewLine(note);
+    final privateState = ref.watch(privateNotesProvider);
+    final locked = note.isPrivate && !privateState.isUnlocked;
+
+    final title = locked ? 'Nota privada' : (note.title.isEmpty ? 'Sin título' : note.title);
+    final preview = locked ? '•••••• contenido protegido' : _previewLine(note);
+    final accent = locked ? null : AppColors.accentFromHex(note.accentHex);
 
     return NeuSurface(
       radius: 22,
@@ -53,10 +58,21 @@ class NoteCard extends StatelessWidget {
                         ),
                       ),
                     ),
+                  if (locked)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: Icon(
+                        Icons.lock,
+                        size: compact ? 12 : 14,
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.55,
+                        ),
+                      ),
+                    ),
                   Expanded(
                     child: Text(
                       title,
-                      maxLines: compact ? 1 : 1,
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: (compact
                               ? theme.textTheme.titleSmall
@@ -64,6 +80,7 @@ class NoteCard extends StatelessWidget {
                           ?.copyWith(
                         fontWeight: FontWeight.w700,
                         letterSpacing: -0.2,
+                        fontStyle: locked ? FontStyle.italic : FontStyle.normal,
                       ),
                     ),
                   ),

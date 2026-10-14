@@ -12,6 +12,8 @@ import 'package:image_picker/image_picker.dart';
 import '../../core/db/models/note.dart';
 import '../../core/storage/notes_repository.dart';
 import '../../core/storage/repositories.dart';
+import '../private_notes/password_dialog.dart';
+import '../private_notes/private_notes_controller.dart';
 
 enum SaveStatus { pristine, dirty, saving, saved, error }
 
@@ -60,18 +62,38 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       return;
     }
     final note = await _repo.getById(id);
-    if (note != null) {
-      _id = note.id;
-      _titleCtrl.text = note.title;
-      _lastTitle = note.title;
-      try {
-        final raw = jsonDecode(note.bodyDelta);
-        if (raw is List) {
-          final delta = Delta.fromJson(raw.cast<dynamic>());
-          _quillCtrl.document = Document.fromDelta(delta);
-        }
-      } catch (_) {}
+    if (note == null) {
+      if (mounted) context.pop();
+      return;
     }
+    if (note.isPrivate && !ref.read(privateNotesProvider).isUnlocked) {
+      if (!mounted) return;
+      final result = await showPasswordDialog(
+        context,
+        ref,
+        mode: PasswordDialogMode.verify,
+      );
+      if (!mounted) return;
+      if (!result.success) {
+        if (result.message != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(result.message!)),
+          );
+        }
+        context.pop();
+        return;
+      }
+    }
+    _id = note.id;
+    _titleCtrl.text = note.title;
+    _lastTitle = note.title;
+    try {
+      final raw = jsonDecode(note.bodyDelta);
+      if (raw is List) {
+        final delta = Delta.fromJson(raw.cast<dynamic>());
+        _quillCtrl.document = Document.fromDelta(delta);
+      }
+    } catch (_) {}
     _attachListeners();
     if (mounted) {
       setState(() {

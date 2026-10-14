@@ -25,4 +25,6 @@ class NoteEntity {
 
   @Index()
   int? categoryId;
+
+  bool isPrivate = false;
 }

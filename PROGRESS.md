@@ -66,7 +66,9 @@ Aplicados como **gradiente radial en la esquina superior derecha** del card de l
 
 ### Fase 3 — Power user
 - ✓ Compartir nota vía share sheet de Android
-- Bloqueo con biometría (por nota o app completa)
+- ✓ Notas privadas (palabra clave + sesión de 5 min, lock on background)
+- Bloqueo con biometría (descartado: las notas privadas cubren el caso
+  con contraseña, biometría no es necesario si el usuario ya tiene PIN)
 - Recordatorios locales (notificación a fecha/hora)
 - Widget Android (atajo en home screen)
 - Ordenamiento flexible (modificación, creación, título, color)
@@ -206,6 +208,59 @@ Hecho y compilando (APK debug):
 - La preferencia **persiste** entre arranques de la app (a diferencia de los filtros,
   que son de sesión).
 
+### Fase 3 — Notas privadas (2026-10-14)
+- `crypto: ^3.0.6` añadido a pubspec (SHA-256 para hashear la palabra clave)
+- `NoteEntity` ahora tiene `bool isPrivate = false`. Migración de Isar
+  automática (campo nuevo → default false en notas existentes).
+- `NotesRepository.setPrivate(id, isPrivate)` añadido.
+- Nuevo módulo `lib/features/private_notes/`:
+  - `private_notes_controller.dart`:
+    - `PrivateNotesState { hasPassword, unlockedUntil }` con
+      `isUnlocked` derivado (false si TTL expirado).
+    - `PrivateNotesController` (Notifier): `verify`, `setPassword`,
+      `changePassword({current, next})`, `removePassword(current)`,
+      `removeAfterVerified()`, `lock`. La sesión dura `sessionTtl = 5 min`
+      desde el último verify/change/set exitoso.
+    - `sharedPreferencesProvider` exportado (Provider) con override en
+      `main.dart` (se carga `SharedPreferences.getInstance()` una vez).
+    - Hash de la palabra clave con `sha256.convert(utf8.encode(input))`,
+      almacenado en `shared_preferences` bajo `private.notes.passwordHash`.
+  - `password_dialog.dart`:
+    - `showPasswordDialog(context, ref, mode, title?)` con 3 modos:
+      `set` (clave nueva + repetir), `change` (actual + nueva + repetir),
+      `verify` (solo la clave).
+    - Devuelve `PasswordDialogResult { success, message? }` para que la
+      UI muestre snackbars con el motivo del fallo.
+    - Mínimo 4 caracteres al crear/cambiar.
+- `NoteCard` ahora es `ConsumerWidget`. Si la nota es `isPrivate` y la
+  sesión está bloqueada, muestra:
+  - Icono `lock` junto al título
+  - Título reemplazado por **"Nota privada"** (cursiva)
+  - Preview reemplazado por **"•••••• contenido protegido"**
+  - Sin heat point de color
+  Cuando la sesión está desbloqueada, se ve normal.
+- `SettingsScreen` tiene ahora una sección **"Notas privadas"**:
+  - Si no hay clave: tile "Activar notas privadas" → dialog set
+  - Si hay clave: tile "Notas privadas" muestra el estado (activada,
+    sesión desbloqueada) y un icono de candado. Tap alterna lock/unlock
+    (si está bloqueada, pide verify; si está desbloqueada, la bloquea
+    al instante). Debajo: dos botones "Cambiar clave" y "Desactivar".
+- `NotesListScreen` y `FolderDetailScreen` muestran en su options sheet
+  (long-press) la opción **"Marcar como privada"** / **"Quitar de
+  privadas"** solo si `hasPassword` es true.
+- `EditorScreen._bootstrap` ahora: si la nota a abrir es privada y la
+  sesión está bloqueada, muestra el `PasswordDialog` (verify). Si
+  cancela o falla, snackbar con el motivo y `context.pop()`.
+- `app.dart` ahora es `ConsumerStatefulWidget` con `AppLifecycleListener`
+  que llama a `lock()` en `onPause`, `onInactive` y `onHide` — la
+  sesión se cierra cuando la app pasa a background.
+- Búsqueda: las notas privadas aparecen en los resultados pero se ven
+  locked (mismo `NoteCard`). Tradeoff conocido: el índice de Isar
+  matchea por contenido aunque esté bloqueada — se documenta como
+  limitación aceptable para el modelo de amenaza "shoulder surfing".
+  Si más adelante se quiere evitar, se puede filtrar en `search()` por
+  `isPrivate == false` cuando la sesión esté bloqueada.
+
 ### Fase 3 — Confirmaciones de borrado (2026-10-14)
 - Nuevo `lib/shared/widgets/confirm_dialog.dart`:
   - `showConfirmDialog(context, title, message, confirmLabel, cancelLabel,
@@ -313,7 +368,7 @@ No indican fallo y no se pueden silenciar desde la app; se filtran con `adb logc
 
 ## Próximos pasos
 
-1. **Fase 3 (continuación)**: bloquear con biometría, recordatorios, widget Android
+1. **Fase 3 (continuación)**: recordatorios locales (notificaciones)
 2. **Fase 4 — Export**: PDF individual + ZIP de carpeta (estos sí incluirán imágenes)
 
 ## Convenciones
