@@ -208,6 +208,31 @@ Hecho y compilando (APK debug):
 - La preferencia **persiste** entre arranques de la app (a diferencia de los filtros,
   que son de sesión).
 
+### Fase 3 — Notas privadas sin tab en el nav (2026-10-14)
+- **Tab de Privadas eliminado del bottom nav**. Vuelve a 3 tabs
+  (Notas / Carpetas / Papelera). El acceso a notas privadas es
+  deliberadamente indirecto: solo desde Ajustes, y solo después de
+  escribir la palabra clave.
+- `app_router.dart`:
+  - `/private` movido del `ShellRoute` a una ruta top-level con
+    `parentNavigatorKey: _rootNavigatorKey` (sin bottom nav, con
+    back por defecto del AppBar).
+- `SettingsScreen` — sección "Notas privadas" rediseñada:
+  - El tile principal muestra el estado (Bloqueada / Desbloqueada).
+    Si está bloqueada, tap → `PasswordDialog` verify. Si está
+    desbloqueada, tap → navega a `/private`.
+  - **Cuando está desbloqueada**, debajo del tile aparece una fila
+    con dos botones: "Ver notas privadas" (FilledButton primario,
+    navega a `/private`) y "Bloquear" (OutlinedButton, cierra la
+    sesión manualmente y muestra snackbar de confirmación).
+  - "Cambiar clave" y "Desactivar" siguen en su propia fila abajo,
+    disponibles siempre.
+- Flujo completo: Ajustes → "Notas privadas" (verifica con clave) →
+  aparece "Ver notas privadas" → navega a la lista. Para volver a
+  bloquear, o se usa el botón "Bloquear" de ajustes, o el icono
+  `lock_outline` del AppBar de la pantalla de privadas, o se espera
+  al TTL de 5 min / app en background.
+
 ### Fase 3 — Notas privadas rediseñadas (2026-10-14)
 - **Cambio mayor de modelo**: las notas privadas ahora son una sección
   completamente aislada. NO aparecen en la lista principal, ni en

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/neu_surface.dart';
@@ -105,10 +106,10 @@ class _PrivateNotesTile extends ConsumerWidget {
           subtitle: state.isUnlocked
               ? 'Activadas · sesión desbloqueada'
               : 'Activadas · pulsa para desbloquear',
-          leading: Icons.lock,
+          leading: state.isUnlocked ? Icons.lock_open : Icons.lock,
           onTap: () async {
             if (state.isUnlocked) {
-              ref.read(privateNotesProvider.notifier).lock();
+              context.push('/private');
               return;
             }
             final result = await showPasswordDialog(
@@ -123,10 +124,33 @@ class _PrivateNotesTile extends ConsumerWidget {
               );
             }
           },
-          trailing: state.isUnlocked
-              ? const Icon(Icons.lock_open, size: 18)
-              : const Icon(Icons.lock, size: 18),
+          trailing: const Icon(Icons.chevron_right, size: 20),
         ),
+        if (state.isUnlocked) ...[
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: () => context.push('/private'),
+                  icon: const Icon(Icons.visibility_outlined, size: 16),
+                  label: const Text('Ver notas privadas'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                onPressed: () {
+                  ref.read(privateNotesProvider.notifier).lock();
+                  messenger.showSnackBar(
+                    const SnackBar(content: Text('Sesión bloqueada')),
+                  );
+                },
+                icon: const Icon(Icons.lock, size: 16),
+                label: const Text('Bloquear'),
+              ),
+            ],
+          ),
+        ],
         const SizedBox(height: 6),
         Row(
           children: [

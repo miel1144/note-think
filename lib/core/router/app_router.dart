@@ -34,11 +34,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 const NoTransitionPage(child: NotesListScreen()),
           ),
           GoRoute(
-            path: '/private',
-            pageBuilder: (_, _) =>
-                const NoTransitionPage(child: PrivateNotesScreen()),
-          ),
-          GoRoute(
             path: '/folders',
             pageBuilder: (_, _) =>
                 const NoTransitionPage(child: CategoriesScreen()),
@@ -71,6 +66,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(
+        path: '/private',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (_, _) => const PrivateNotesScreen(),
+      ),
+      GoRoute(
         path: '/search',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (_, _) => const SearchScreen(),
@@ -90,9 +90,8 @@ class _ScaffoldWithNav extends StatelessWidget {
   final String location;
 
   int get _index {
-    if (location.startsWith('/private')) return 1;
-    if (location.startsWith('/folders')) return 2;
-    if (location.startsWith('/trash')) return 3;
+    if (location.startsWith('/folders')) return 1;
+    if (location.startsWith('/trash')) return 2;
     return 0;
   }
 
@@ -102,19 +101,15 @@ class _ScaffoldWithNav extends StatelessWidget {
       body: child,
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _index,
-        type: BottomNavigationBarType.fixed,
         onTap: (i) {
           switch (i) {
             case 0:
               context.go('/');
               break;
             case 1:
-              context.go('/private');
-              break;
-            case 2:
               context.go('/folders');
               break;
-            case 3:
+            case 2:
               context.go('/trash');
               break;
           }
@@ -124,11 +119,6 @@ class _ScaffoldWithNav extends StatelessWidget {
             icon: Icon(Icons.sticky_note_2_outlined),
             activeIcon: Icon(Icons.sticky_note_2),
             label: 'Notas',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.lock_outline),
-            activeIcon: Icon(Icons.lock),
-            label: 'Privadas',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.folder_outlined),
