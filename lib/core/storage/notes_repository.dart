@@ -88,6 +88,14 @@ class NotesRepository {
 
   Future<NoteEntity?> getById(int id) => _col.get(id);
 
+  Future<List<NoteEntity>> getActiveWithReminders() async {
+    return _col
+        .filter()
+        .deletedAtIsNull()
+        .reminderAtIsNotNull()
+        .findAll();
+  }
+
   Future<int> upsert(NoteEntity note) async {
     note.updatedAt = DateTime.now();
     if (note.id == Isar.autoIncrement) {
@@ -170,6 +178,16 @@ class NotesRepository {
       final n = await _col.get(id);
       if (n == null) return;
       n.isPrivate = isPrivate;
+      n.updatedAt = DateTime.now();
+      await _col.put(n);
+    });
+  }
+
+  Future<void> setReminder(int id, DateTime? when) async {
+    await _isar.writeTxn(() async {
+      final n = await _col.get(id);
+      if (n == null) return;
+      n.reminderAt = when;
       n.updatedAt = DateTime.now();
       await _col.put(n);
     });

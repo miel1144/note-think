@@ -7,6 +7,7 @@ import '../../core/storage/repositories.dart';
 import '../../shared/widgets/confirm_dialog.dart';
 import '../../shared/widgets/note_card.dart';
 import '../notes/notes_providers.dart';
+import '../reminders/reminders_service.dart';
 
 class TrashScreen extends ConsumerWidget {
   const TrashScreen({super.key});
@@ -97,6 +98,7 @@ class TrashScreen extends ConsumerWidget {
                   await ref
                       .read(notesRepositoryProvider)
                       .permanentDelete(n.id);
+                  await RemindersService.instance.cancel(n.id);
                 },
                 child: NoteCard(
                   note: n,
@@ -172,6 +174,7 @@ class TrashScreen extends ConsumerWidget {
                     await ref
                         .read(notesRepositoryProvider)
                         .permanentDelete(n.id);
+                    await RemindersService.instance.cancel(n.id);
                   }
                 },
               ),

@@ -27,4 +27,7 @@ class NoteEntity {
   int? categoryId;
 
   bool isPrivate = false;
+
+  @Index()
+  DateTime? reminderAt;
 }

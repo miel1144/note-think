@@ -12,6 +12,8 @@ import '../notes/note_share.dart';
 import '../notes/notes_providers.dart';
 import '../private_notes/password_dialog.dart';
 import '../private_notes/private_notes_controller.dart';
+import '../reminders/reminder_picker.dart';
+import '../reminders/reminders_service.dart';
 
 class PrivateNotesScreen extends ConsumerWidget {
   const PrivateNotesScreen({super.key});
@@ -258,6 +260,82 @@ class _PrivateList extends ConsumerWidget {
                   Navigator.pop(sheetContext);
                 },
               ),
+              if (note.reminderAt == null)
+                ListTile(
+                  leading: const Icon(Icons.notifications_outlined),
+                  title: const Text('Programar recordatorio'),
+                  subtitle: const Text(
+                    'La notificación no mostrará el título',
+                    style: TextStyle(fontSize: 11),
+                  ),
+                  onTap: () async {
+                    Navigator.pop(sheetContext);
+                    final granted =
+                        await RemindersService.instance.requestPermission();
+                    if (!granted) {
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Se necesita permiso de notificaciones',
+                          ),
+                        ),
+                      );
+                      return;
+                    }
+                    if (!context.mounted) return;
+                    final when = await showReminderPicker(context);
+                    if (when == null) return;
+                    await ref
+                        .read(notesRepositoryProvider)
+                        .setReminder(note.id, when);
+                    await RemindersService.instance.schedule(
+                      noteId: note.id,
+                      when: when,
+                      title: '',
+                      body: '',
+                      isPrivate: true,
+                    );
+                  },
+                )
+              else
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.notifications_active_outlined),
+                      title: const Text('Cambiar recordatorio'),
+                      subtitle: Text(formatReminder(note.reminderAt!)),
+                      onTap: () async {
+                        Navigator.pop(sheetContext);
+                        final when = await showReminderPicker(context);
+                        if (when == null) return;
+                        await ref
+                            .read(notesRepositoryProvider)
+                            .setReminder(note.id, when);
+                        await RemindersService.instance.cancel(note.id);
+                        await RemindersService.instance.schedule(
+                          noteId: note.id,
+                          when: when,
+                          title: '',
+                          body: '',
+                          isPrivate: true,
+                        );
+                      },
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.notifications_off_outlined),
+                      title: const Text('Quitar recordatorio'),
+                      onTap: () async {
+                        Navigator.pop(sheetContext);
+                        await ref
+                            .read(notesRepositoryProvider)
+                            .setReminder(note.id, null);
+                        await RemindersService.instance.cancel(note.id);
+                      },
+                    ),
+                  ],
+                ),
               ListTile(
                 leading: Icon(
                   Icons.delete_forever,
@@ -279,6 +357,7 @@ class _PrivateList extends ConsumerWidget {
                     await ref
                         .read(notesRepositoryProvider)
                         .permanentDelete(note.id);
+                    await RemindersService.instance.cancel(note.id);
                   }
                 },
               ),

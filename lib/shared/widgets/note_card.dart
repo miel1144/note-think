@@ -69,6 +69,17 @@ class NoteCard extends ConsumerWidget {
                         ),
                       ),
                     ),
+                  if (note.reminderAt != null && !locked)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: Icon(
+                        Icons.notifications_active_outlined,
+                        size: compact ? 12 : 14,
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.55,
+                        ),
+                      ),
+                    ),
                   Expanded(
                     child: Text(
                       title,

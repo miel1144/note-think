@@ -50,11 +50,6 @@ class SettingsScreen extends ConsumerWidget {
           const SizedBox(height: 24),
           const _SectionLabel('Próximamente'),
           const _SettingTile(
-            title: 'Recordatorios',
-            subtitle: 'Disponible en una próxima fase',
-            leading: Icons.notifications_none,
-          ),
-          const _SettingTile(
             title: 'Exportar a PDF',
             subtitle: 'Disponible en una próxima fase',
             leading: Icons.picture_as_pdf_outlined,

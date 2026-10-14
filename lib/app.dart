@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_quill/flutter_quill.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'features/private_notes/private_notes_controller.dart';
+import 'features/reminders/reminders_service.dart';
 
 class NoteThinkApp extends ConsumerStatefulWidget {
   const NoteThinkApp({super.key});
@@ -25,6 +27,30 @@ class _NoteThinkAppState extends ConsumerState<NoteThinkApp> {
       onInactive: _lockPrivate,
       onHide: _lockPrivate,
     );
+    RemindersService.instance.tappedNoteId.addListener(_onReminderTap);
+    _maybeHandleInitialNotification();
+  }
+
+  Future<void> _maybeHandleInitialNotification() async {
+    final details = await FlutterLocalNotificationsPlugin()
+        .getNotificationAppLaunchDetails();
+    if (details?.didNotificationLaunchApp ?? false) {
+      final id = details?.notificationResponse?.payload;
+      final noteId = int.tryParse(id ?? '');
+      if (noteId != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          RemindersService.instance.tappedNoteId.value = noteId;
+        });
+      }
+    }
+  }
+
+  void _onReminderTap() {
+    final id = RemindersService.instance.tappedNoteId.value;
+    if (id == null) return;
+    final router = ref.read(appRouterProvider);
+    router.push('/edit/$id');
+    RemindersService.instance.tappedNoteId.value = null;
   }
 
   void _lockPrivate() {
@@ -34,6 +60,7 @@ class _NoteThinkAppState extends ConsumerState<NoteThinkApp> {
   @override
   void dispose() {
     _lifecycle.dispose();
+    RemindersService.instance.tappedNoteId.removeListener(_onReminderTap);
     super.dispose();
   }
 

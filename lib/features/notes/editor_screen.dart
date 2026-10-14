@@ -15,6 +15,8 @@ import '../../core/storage/repositories.dart';
 import '../../shared/widgets/confirm_dialog.dart';
 import '../private_notes/password_dialog.dart';
 import '../private_notes/private_notes_controller.dart';
+import '../reminders/reminder_picker.dart';
+import '../reminders/reminders_service.dart';
 
 enum SaveStatus { pristine, dirty, saving, saved, error }
 
@@ -86,6 +88,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       }
     }
     _id = note.id;
+    ref.read(currentEditorNoteIdProvider.notifier).set(note.id);
     _titleCtrl.text = note.title;
     _lastTitle = note.title;
     try {
@@ -203,6 +206,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     } else {
       await _repo.softDelete(id);
     }
+    await RemindersService.instance.cancel(id);
     if (mounted) context.pop();
   }
 
@@ -260,6 +264,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         ),
         title: const Text('Editar'),
         actions: [
+          if (widget.noteId != null) const _ReminderMenu(),
           _SaveIndicator(
             status: _status,
             onTap: _status == SaveStatus.saving ? null : _performSave,
@@ -389,3 +394,149 @@ class _SaveIndicator extends StatelessWidget {
     );
   }
 }
+
+class _ReminderMenu extends ConsumerWidget {
+  const _ReminderMenu();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final noteId = _currentNoteId(ref);
+    if (noteId == null) return const SizedBox.shrink();
+    final noteAsync = ref.watch(_currentNoteProvider(noteId));
+    final note = noteAsync.value;
+    final hasReminder = note?.reminderAt != null;
+    return PopupMenuButton<String>(
+      tooltip: hasReminder ? 'Recordatorio' : 'Programar recordatorio',
+      icon: Icon(
+        hasReminder
+            ? Icons.notifications_active_outlined
+            : Icons.notifications_outlined,
+      ),
+      color: Theme.of(context).colorScheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      onSelected: (value) async {
+        if (note == null) return;
+        if (value == 'schedule') {
+          final granted =
+              await RemindersService.instance.requestPermission();
+          if (!granted) {
+            if (!context.mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Se necesita permiso de notificaciones'),
+              ),
+            );
+            return;
+          }
+          if (!context.mounted) return;
+          final when = await showReminderPicker(context);
+          if (when == null) return;
+          await ref
+              .read(notesRepositoryProvider)
+              .setReminder(noteId, when);
+          final title = note.title.trim().isEmpty
+              ? 'Recordatorio'
+              : note.title.trim();
+          final body = RemindersService.instance.firstBodyLine(note.bodyPlain);
+          await RemindersService.instance.schedule(
+            noteId: noteId,
+            when: when,
+            title: title,
+            body: body,
+            isPrivate: note.isPrivate,
+          );
+        } else if (value == 'change') {
+          final when = await showReminderPicker(context);
+          if (when == null) return;
+          await ref
+              .read(notesRepositoryProvider)
+              .setReminder(noteId, when);
+          final title = note.title.trim().isEmpty
+              ? 'Recordatorio'
+              : note.title.trim();
+          final body = RemindersService.instance.firstBodyLine(note.bodyPlain);
+          await RemindersService.instance.cancel(noteId);
+          await RemindersService.instance.schedule(
+            noteId: noteId,
+            when: when,
+            title: title,
+            body: body,
+            isPrivate: note.isPrivate,
+          );
+        } else if (value == 'cancel') {
+          await ref
+              .read(notesRepositoryProvider)
+              .setReminder(noteId, null);
+          await RemindersService.instance.cancel(noteId);
+        }
+      },
+      itemBuilder: (_) {
+        if (!hasReminder || note == null) {
+          return const [
+            PopupMenuItem(
+              value: 'schedule',
+              child: Row(
+                children: [
+                  Icon(Icons.notifications_outlined, size: 18),
+                  SizedBox(width: 10),
+                  Text('Programar recordatorio'),
+                ],
+              ),
+            ),
+          ];
+        }
+        return [
+          PopupMenuItem(
+            value: 'change',
+            child: Row(
+              children: [
+                const Icon(Icons.edit_calendar_outlined, size: 18),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text('Cambiar (${formatReminder(note.reminderAt!)})'),
+                ),
+              ],
+            ),
+          ),
+          const PopupMenuItem(
+            value: 'cancel',
+            child: Row(
+              children: [
+                Icon(Icons.notifications_off_outlined, size: 18),
+                SizedBox(width: 10),
+                Text('Quitar recordatorio'),
+              ],
+            ),
+          ),
+        ];
+      },
+    );
+  }
+
+  int? _currentNoteId(WidgetRef ref) {
+    return ref.read(currentEditorNoteIdProvider);
+  }
+}
+
+class CurrentEditorNoteIdController extends Notifier<int?> {
+  @override
+  int? build() => null;
+
+  void set(int? id) {
+    state = id;
+  }
+}
+
+final currentEditorNoteIdProvider =
+    NotifierProvider<CurrentEditorNoteIdController, int?>(
+      CurrentEditorNoteIdController.new,
+    );
+
+final _currentNoteProvider = FutureProvider.family<NoteEntity?, int>((
+  ref,
+  id,
+) async {
+  return ref.watch(notesRepositoryProvider).getById(id);
+});

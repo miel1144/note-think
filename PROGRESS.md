@@ -67,9 +67,10 @@ Aplicados como **gradiente radial en la esquina superior derecha** del card de l
 ### Fase 3 — Power user
 - ✓ Compartir nota vía share sheet de Android
 - ✓ Notas privadas (palabra clave + sesión de 5 min, lock on background)
+- ✓ Recordatorios locales (con permiso Android 13+, cancel on delete,
+  leak-safe en privadas)
 - Bloqueo con biometría (descartado: las notas privadas cubren el caso
   con contraseña, biometría no es necesario si el usuario ya tiene PIN)
-- Recordatorios locales (notificación a fecha/hora)
 - Widget Android (atajo en home screen)
 - Ordenamiento flexible (modificación, creación, título, color)
 
@@ -207,6 +208,68 @@ Hecho y compilando (APK debug):
     de pantalla (1 col muy estrecho, 2 cols estándar, 3+ en tablets).
 - La preferencia **persiste** entre arranques de la app (a diferencia de los filtros,
   que son de sesión).
+
+### Fase 3 — Recordatorios locales (2026-10-14)
+- Dependencias añadidas:
+  - `flutter_local_notifications: ^22.3.2`
+  - `timezone: ^0.11.2`
+  - `flutter_timezone: ^5.1.1`
+- Android (manifest):
+  - `POST_NOTIFICATIONS`, `SCHEDULE_EXACT_ALARM`, `USE_EXACT_ALARM`,
+    `RECEIVE_BOOT_COMPLETED`, `WAKE_LOCK`, `VIBRATE`
+  - `coreLibraryDesugaring = true` + `desugar_jdk_libs:2.1.4` en
+    `app/build.gradle.kts` (requerido por `flutter_local_notifications` 18+)
+- `NoteEntity.reminderAt: DateTime?` añadido (con índice). Migración
+  automática — null por defecto en notas existentes.
+- `NotesRepository`:
+  - `setReminder(id, DateTime?)`
+  - `getActiveWithReminders()` para re-agendar al arrancar la app
+- Nuevo `lib/features/reminders/`:
+  - `reminders_service.dart`: `RemindersService.instance` (singleton).
+    - `init()`: configura timezone (vía `FlutterTimezone.getLocalTimezone`
+      → `tz.getLocation(info.identifier)`), inicializa el plugin con
+      `AndroidInitializationSettings('@mipmap/ic_launcher')` y crea el
+      canal `note_reminders` con importancia HIGH.
+    - `requestPermission()`: para Android 13+ (POST_NOTIFICATIONS).
+    - `schedule({noteId, when, title, body, isPrivate})`:
+      `zonedSchedule` con `androidScheduleMode: inexactAllowWhileIdle`
+      (no requiere el permiso "alarmas y recordatorios" del sistema,
+      puede llegar con algunos minutos de retraso). El payload lleva
+      el `noteId` para deep-link al tap. Si la nota es privada, el
+      título de la notificación es genérico ("Tienes un
+      recordatorio") y el body es "Toca para abrir la nota" — no
+      leak del contenido.
+    - `cancel(noteId)`, `cancelAll()`.
+    - `tappedNoteId: ValueNotifier<int?>` que se setea en
+      `onDidReceiveNotificationResponse` cuando el usuario toca la
+      notificación.
+  - `reminder_picker.dart`: `showReminderPicker(context)` — date +
+    time picker (24h). Valida que la fecha sea en el futuro.
+    `formatReminder(when)` devuelve "Hoy 18:30", "Mañana 09:00", o
+    "25/10/2026 18:30".
+- `main.dart`: después de abrir Isar, llama a `RemindersService.init()`
+  y re-agenda los recordatorios activos (sobreviven reinicios).
+- `app.dart` (ahora `ConsumerStatefulWidget`): escucha
+  `RemindersService.tappedNoteId` y navega a `/edit/$id` cuando se
+  setea. También maneja el caso "app launched from notification"
+  vía `getNotificationAppLaunchDetails`.
+- Opciones de UI:
+  - `NotesListScreen`, `FolderDetailScreen`, `PrivateNotesScreen`
+    options sheets: "Programar recordatorio" / "Cambiar" (con
+    `formatReminder` como subtitle) / "Quitar". Permiso se pide al
+    programar.
+  - `EditorScreen` AppBar: nuevo `PopupMenuButton` con icono
+    `notifications_outlined` / `notifications_active_outlined`
+    según el estado, mismo flujo.
+- `NoteCard`: bell icon (`notifications_active_outlined`) junto al
+  título cuando `reminderAt != null` y la nota no está locked.
+- Cancelación de recordatorio en todos los paths de borrado:
+  `softDelete` (lista, folder, editor), `permanentDelete` (trash
+  sheet, trash swipe, trash empty indirecto via reschedule, editor
+  para privadas, private notes screen).
+- Si la nota se marca como privada y tenía recordatorio, se cancela
+  (evita leak del título en la notif). Al desmarcar, el usuario
+  tiene que reprogramar manualmente.
 
 ### Fase 3 — Notas privadas sin tab en el nav (2026-10-14)
 - **Tab de Privadas eliminado del bottom nav**. Vuelve a 3 tabs

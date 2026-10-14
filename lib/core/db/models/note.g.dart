@@ -53,9 +53,14 @@ const NoteEntitySchema = CollectionSchema(
       type: IsarType.bool,
     ),
     r'pinned': PropertySchema(id: 7, name: r'pinned', type: IsarType.bool),
-    r'title': PropertySchema(id: 8, name: r'title', type: IsarType.string),
+    r'reminderAt': PropertySchema(
+      id: 8,
+      name: r'reminderAt',
+      type: IsarType.dateTime,
+    ),
+    r'title': PropertySchema(id: 9, name: r'title', type: IsarType.string),
     r'updatedAt': PropertySchema(
-      id: 9,
+      id: 10,
       name: r'updatedAt',
       type: IsarType.dateTime,
     ),
@@ -101,6 +106,19 @@ const NoteEntitySchema = CollectionSchema(
       properties: [
         IndexPropertySchema(
           name: r'categoryId',
+          type: IndexType.value,
+          caseSensitive: false,
+        ),
+      ],
+    ),
+    r'reminderAt': IndexSchema(
+      id: -2650462151190739050,
+      name: r'reminderAt',
+      unique: false,
+      replace: false,
+      properties: [
+        IndexPropertySchema(
+          name: r'reminderAt',
           type: IndexType.value,
           caseSensitive: false,
         ),
@@ -154,8 +172,9 @@ void _noteEntitySerialize(
   writer.writeDateTime(offsets[5], object.deletedAt);
   writer.writeBool(offsets[6], object.isPrivate);
   writer.writeBool(offsets[7], object.pinned);
-  writer.writeString(offsets[8], object.title);
-  writer.writeDateTime(offsets[9], object.updatedAt);
+  writer.writeDateTime(offsets[8], object.reminderAt);
+  writer.writeString(offsets[9], object.title);
+  writer.writeDateTime(offsets[10], object.updatedAt);
 }
 
 NoteEntity _noteEntityDeserialize(
@@ -174,8 +193,9 @@ NoteEntity _noteEntityDeserialize(
   object.id = id;
   object.isPrivate = reader.readBool(offsets[6]);
   object.pinned = reader.readBool(offsets[7]);
-  object.title = reader.readString(offsets[8]);
-  object.updatedAt = reader.readDateTime(offsets[9]);
+  object.reminderAt = reader.readDateTimeOrNull(offsets[8]);
+  object.title = reader.readString(offsets[9]);
+  object.updatedAt = reader.readDateTime(offsets[10]);
   return object;
 }
 
@@ -203,8 +223,10 @@ P _noteEntityDeserializeProp<P>(
     case 7:
       return (reader.readBool(offset)) as P;
     case 8:
-      return (reader.readString(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 9:
+      return (reader.readString(offset)) as P;
+    case 10:
       return (reader.readDateTime(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -251,6 +273,14 @@ extension NoteEntityQueryWhereSort
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         const IndexWhereClause.any(indexName: r'categoryId'),
+      );
+    });
+  }
+
+  QueryBuilder<NoteEntity, NoteEntity, QAfterWhere> anyReminderAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        const IndexWhereClause.any(indexName: r'reminderAt'),
       );
     });
   }
@@ -750,6 +780,133 @@ extension NoteEntityQueryWhere
           lower: [lowerCategoryId],
           includeLower: includeLower,
           upper: [upperCategoryId],
+          includeUpper: includeUpper,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<NoteEntity, NoteEntity, QAfterWhereClause> reminderAtIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'reminderAt', value: [null]),
+      );
+    });
+  }
+
+  QueryBuilder<NoteEntity, NoteEntity, QAfterWhereClause>
+  reminderAtIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'reminderAt',
+          lower: [null],
+          includeLower: false,
+          upper: [],
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<NoteEntity, NoteEntity, QAfterWhereClause> reminderAtEqualTo(
+    DateTime? reminderAt,
+  ) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'reminderAt', value: [reminderAt]),
+      );
+    });
+  }
+
+  QueryBuilder<NoteEntity, NoteEntity, QAfterWhereClause> reminderAtNotEqualTo(
+    DateTime? reminderAt,
+  ) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'reminderAt',
+                lower: [],
+                upper: [reminderAt],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'reminderAt',
+                lower: [reminderAt],
+                includeLower: false,
+                upper: [],
+              ),
+            );
+      } else {
+        return query
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'reminderAt',
+                lower: [reminderAt],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'reminderAt',
+                lower: [],
+                upper: [reminderAt],
+                includeUpper: false,
+              ),
+            );
+      }
+    });
+  }
+
+  QueryBuilder<NoteEntity, NoteEntity, QAfterWhereClause> reminderAtGreaterThan(
+    DateTime? reminderAt, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'reminderAt',
+          lower: [reminderAt],
+          includeLower: include,
+          upper: [],
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<NoteEntity, NoteEntity, QAfterWhereClause> reminderAtLessThan(
+    DateTime? reminderAt, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'reminderAt',
+          lower: [],
+          upper: [reminderAt],
+          includeUpper: include,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<NoteEntity, NoteEntity, QAfterWhereClause> reminderAtBetween(
+    DateTime? lowerReminderAt,
+    DateTime? upperReminderAt, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'reminderAt',
+          lower: [lowerReminderAt],
+          includeLower: includeLower,
+          upper: [upperReminderAt],
           includeUpper: includeUpper,
         ),
       );
@@ -1549,6 +1706,79 @@ extension NoteEntityQueryFilter
     });
   }
 
+  QueryBuilder<NoteEntity, NoteEntity, QAfterFilterCondition>
+  reminderAtIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'reminderAt'),
+      );
+    });
+  }
+
+  QueryBuilder<NoteEntity, NoteEntity, QAfterFilterCondition>
+  reminderAtIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'reminderAt'),
+      );
+    });
+  }
+
+  QueryBuilder<NoteEntity, NoteEntity, QAfterFilterCondition> reminderAtEqualTo(
+    DateTime? value,
+  ) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'reminderAt', value: value),
+      );
+    });
+  }
+
+  QueryBuilder<NoteEntity, NoteEntity, QAfterFilterCondition>
+  reminderAtGreaterThan(DateTime? value, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'reminderAt',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<NoteEntity, NoteEntity, QAfterFilterCondition>
+  reminderAtLessThan(DateTime? value, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'reminderAt',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<NoteEntity, NoteEntity, QAfterFilterCondition> reminderAtBetween(
+    DateTime? lower,
+    DateTime? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'reminderAt',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
+    });
+  }
+
   QueryBuilder<NoteEntity, NoteEntity, QAfterFilterCondition> titleEqualTo(
     String value, {
     bool caseSensitive = true,
@@ -1846,6 +2076,18 @@ extension NoteEntityQuerySortBy
     });
   }
 
+  QueryBuilder<NoteEntity, NoteEntity, QAfterSortBy> sortByReminderAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'reminderAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<NoteEntity, NoteEntity, QAfterSortBy> sortByReminderAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'reminderAt', Sort.desc);
+    });
+  }
+
   QueryBuilder<NoteEntity, NoteEntity, QAfterSortBy> sortByTitle() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'title', Sort.asc);
@@ -1969,6 +2211,18 @@ extension NoteEntityQuerySortThenBy
     });
   }
 
+  QueryBuilder<NoteEntity, NoteEntity, QAfterSortBy> thenByReminderAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'reminderAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<NoteEntity, NoteEntity, QAfterSortBy> thenByReminderAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'reminderAt', Sort.desc);
+    });
+  }
+
   QueryBuilder<NoteEntity, NoteEntity, QAfterSortBy> thenByTitle() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'title', Sort.asc);
@@ -2048,6 +2302,12 @@ extension NoteEntityQueryWhereDistinct
     });
   }
 
+  QueryBuilder<NoteEntity, NoteEntity, QDistinct> distinctByReminderAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'reminderAt');
+    });
+  }
+
   QueryBuilder<NoteEntity, NoteEntity, QDistinct> distinctByTitle({
     bool caseSensitive = true,
   }) {
@@ -2116,6 +2376,12 @@ extension NoteEntityQueryProperty
   QueryBuilder<NoteEntity, bool, QQueryOperations> pinnedProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'pinned');
+    });
+  }
+
+  QueryBuilder<NoteEntity, DateTime?, QQueryOperations> reminderAtProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'reminderAt');
     });
   }
 

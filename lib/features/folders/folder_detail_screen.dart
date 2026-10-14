@@ -9,6 +9,8 @@ import '../categories/categories_providers.dart';
 import '../notes/note_share.dart';
 import '../notes/notes_providers.dart';
 import '../private_notes/private_notes_controller.dart';
+import '../reminders/reminder_picker.dart';
+import '../reminders/reminders_service.dart';
 
 class FolderDetailScreen extends ConsumerWidget {
   const FolderDetailScreen({super.key, required this.folderId});
@@ -160,12 +162,97 @@ class FolderDetailScreen extends ConsumerWidget {
                   title: Text(
                     note.isPrivate ? 'Quitar de privadas' : 'Marcar como privada',
                   ),
-                  onTap: () {
-                    ref
+                  onTap: () async {
+                    Navigator.pop(sheetContext);
+                    await ref
                         .read(notesRepositoryProvider)
                         .setPrivate(note.id, !note.isPrivate);
-                    Navigator.pop(sheetContext);
+                    if (!note.isPrivate) {
+                      await RemindersService.instance.cancel(note.id);
+                    }
                   },
+                ),
+              if (note.reminderAt == null)
+                ListTile(
+                  leading: const Icon(Icons.notifications_outlined),
+                  title: const Text('Programar recordatorio'),
+                  onTap: () async {
+                    Navigator.pop(sheetContext);
+                    final granted =
+                        await RemindersService.instance.requestPermission();
+                    if (!granted) {
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Se necesita permiso de notificaciones',
+                          ),
+                        ),
+                      );
+                      return;
+                    }
+                    if (!context.mounted) return;
+                    final when = await showReminderPicker(context);
+                    if (when == null) return;
+                    await ref
+                        .read(notesRepositoryProvider)
+                        .setReminder(note.id, when);
+                    final title = note.title.trim().isEmpty
+                        ? 'Recordatorio'
+                        : note.title.trim();
+                    final body =
+                        RemindersService.instance.firstBodyLine(note.bodyPlain);
+                    await RemindersService.instance.schedule(
+                      noteId: note.id,
+                      when: when,
+                      title: title,
+                      body: body,
+                      isPrivate: note.isPrivate,
+                    );
+                  },
+                )
+              else
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.notifications_active_outlined),
+                      title: const Text('Cambiar recordatorio'),
+                      subtitle: Text(formatReminder(note.reminderAt!)),
+                      onTap: () async {
+                        Navigator.pop(sheetContext);
+                        final when = await showReminderPicker(context);
+                        if (when == null) return;
+                        await ref
+                            .read(notesRepositoryProvider)
+                            .setReminder(note.id, when);
+                        final title = note.title.trim().isEmpty
+                            ? 'Recordatorio'
+                            : note.title.trim();
+                        final body = RemindersService.instance
+                            .firstBodyLine(note.bodyPlain);
+                        await RemindersService.instance.cancel(note.id);
+                        await RemindersService.instance.schedule(
+                          noteId: note.id,
+                          when: when,
+                          title: title,
+                          body: body,
+                          isPrivate: note.isPrivate,
+                        );
+                      },
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.notifications_off_outlined),
+                      title: const Text('Quitar recordatorio'),
+                      onTap: () async {
+                        Navigator.pop(sheetContext);
+                        await ref
+                            .read(notesRepositoryProvider)
+                            .setReminder(note.id, null);
+                        await RemindersService.instance.cancel(note.id);
+                      },
+                    ),
+                  ],
                 ),
               ListTile(
                 leading: const Icon(Icons.delete_outline),
@@ -182,6 +269,9 @@ class FolderDetailScreen extends ConsumerWidget {
                   );
                   if (ok) {
                     await ref.read(notesRepositoryProvider).softDelete(note.id);
+                    if (note.reminderAt != null) {
+                      await RemindersService.instance.cancel(note.id);
+                    }
                   }
                 },
               ),
