@@ -12,6 +12,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../core/db/models/note.dart';
 import '../../core/storage/notes_repository.dart';
 import '../../core/storage/repositories.dart';
+import '../../shared/widgets/confirm_dialog.dart';
 import '../private_notes/password_dialog.dart';
 import '../private_notes/private_notes_controller.dart';
 
@@ -183,8 +184,25 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       return;
     }
     _saveTimer?.cancel();
+    final isPrivate = (await _repo.getById(id))?.isPrivate ?? false;
+    if (!mounted) return;
+    final ok = await showConfirmDialog(
+      context,
+      icon: Icons.delete_outline,
+      title: isPrivate ? '¿Eliminar nota privada?' : '¿Mover a papelera?',
+      message: isPrivate
+          ? 'Esta nota privada se borrará para siempre y no se puede recuperar.'
+          : 'Podrás restaurarla desde la papelera durante 30 días. Pasado ese tiempo se eliminará definitivamente.',
+      confirmLabel: isPrivate ? 'Eliminar' : 'Mover',
+      destructive: isPrivate,
+    );
+    if (!ok) return;
     _discard = true;
-    await _repo.softDelete(id);
+    if (isPrivate) {
+      await _repo.permanentDelete(id);
+    } else {
+      await _repo.softDelete(id);
+    }
     if (mounted) context.pop();
   }
 

@@ -46,6 +46,7 @@ class NotesRepository {
     final query = _col
         .filter()
         .deletedAtIsNull()
+        .isPrivateEqualTo(false)
         .sortByPinnedDesc()
         .thenByUpdatedAtDesc()
         .build();
@@ -56,6 +57,7 @@ class NotesRepository {
     final query = _col
         .filter()
         .deletedAtIsNull()
+        .isPrivateEqualTo(false)
         .categoryIdEqualTo(categoryId)
         .sortByPinnedDesc()
         .thenByUpdatedAtDesc()
@@ -67,7 +69,19 @@ class NotesRepository {
     final query = _col
         .filter()
         .deletedAtIsNotNull()
+        .isPrivateEqualTo(false)
         .sortByDeletedAtDesc()
+        .build();
+    return query.watch(fireImmediately: true);
+  }
+
+  Stream<List<NoteEntity>> watchPrivateActive() {
+    final query = _col
+        .filter()
+        .deletedAtIsNull()
+        .isPrivateEqualTo(true)
+        .sortByPinnedDesc()
+        .thenByUpdatedAtDesc()
         .build();
     return query.watch(fireImmediately: true);
   }
@@ -195,7 +209,8 @@ class NotesRepository {
 
     QueryBuilder<NoteEntity, NoteEntity, QAfterFilterCondition> q = _col
         .filter()
-        .deletedAtIsNull();
+        .deletedAtIsNull()
+        .isPrivateEqualTo(false);
     for (final token in tokens) {
       q = q.group((g) {
         return g

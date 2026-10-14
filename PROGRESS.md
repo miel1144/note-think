@@ -208,6 +208,45 @@ Hecho y compilando (APK debug):
 - La preferencia **persiste** entre arranques de la app (a diferencia de los filtros,
   que son de sesión).
 
+### Fase 3 — Notas privadas rediseñadas (2026-10-14)
+- **Cambio mayor de modelo**: las notas privadas ahora son una sección
+  completamente aislada. NO aparecen en la lista principal, ni en
+  búsqueda, ni en el detalle de carpetas, ni en la papelera. La única
+  forma de acceder a ellas es desde el nuevo tab **"Privadas"** en el
+  bottom nav. Una nota privada eliminada va directo a
+  `permanentDelete` — no hay papelera, no se puede recuperar.
+- `NotesRepository`:
+  - `watchActive()`, `watchByCategory()`, `watchTrash()` y `search()`
+    ahora filtran `isPrivateEqualTo(false)`.
+  - Nuevo `watchPrivateActive()` con `deletedAtIsNull().isPrivateEqualTo(true)`,
+    mismo orden (pinned desc, updatedAt desc).
+- Nuevo `privateNotesListProvider` en `notes_providers.dart`.
+- Nuevo `lib/features/private_notes/private_notes_screen.dart` con tres
+  estados:
+  - **Sin clave**: empty state con CTA "Ir a Ajustes".
+  - **Bloqueado** (sesión expirada o nunca abierta): empty state con
+    botón "Desbloquear" que abre el `PasswordDialog` en modo verify.
+  - **Desbloqueado**: lista de notas privadas con el mismo `NoteCard`.
+    AppBar muestra un icono `lock_outline` para volver a bloquear
+    manualmente.
+  - Options sheet de la lista: Fijar / Cambiar color / Compartir /
+    **Quitar de privadas** (`setPrivate(id, false)`) /
+    **Eliminar definitivamente** (con `showConfirmDialog` destructivo,
+    sin pasar por papelera).
+- Router: nueva ruta `/private` como segundo tab del shell.
+- Bottom nav: 4 tabs (Notas / Privadas / Carpetas / Papelera),
+  `BottomNavigationBarType.fixed` para que quepan las labels.
+- `EditorScreen._delete()` ahora pide confirmación (`showConfirmDialog`)
+  y, si la nota es privada, hace `permanentDelete` con diálogo destructivo
+  ("Esta nota privada se borrará para siempre y no se puede recuperar").
+  Para notas regulares sigue siendo "Mover a papelera" con el mensaje
+  de los 30 días.
+- `NoteCard` mantiene el "tratamiento locked" como red de seguridad
+  (icono lock, "Nota privada" en cursiva, "•••••• contenido
+  protegido"). Con el filtrado del repo, ya no debería verse en la
+  lista principal nunca, pero el check se queda por defensa en
+  profundidad.
+
 ### Fase 3 — Notas privadas (2026-10-14)
 - `crypto: ^3.0.6` añadido a pubspec (SHA-256 para hashear la palabra clave)
 - `NoteEntity` ahora tiene `bool isPrivate = false`. Migración de Isar

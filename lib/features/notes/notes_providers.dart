@@ -18,6 +18,10 @@ final trashListProvider = StreamProvider<List<NoteEntity>>(
   (ref) => ref.watch(notesRepositoryProvider).watchTrash(),
 );
 
+final privateNotesListProvider = StreamProvider<List<NoteEntity>>(
+  (ref) => ref.watch(notesRepositoryProvider).watchPrivateActive(),
+);
+
 final noteByIdProvider = FutureProvider.family<NoteEntity?, int>(
   (ref, id) => ref.watch(notesRepositoryProvider).getById(id),
 );
