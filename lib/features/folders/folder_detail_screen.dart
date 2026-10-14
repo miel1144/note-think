@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/storage/repositories.dart';
+import '../../shared/widgets/confirm_dialog.dart';
 import '../../shared/widgets/note_card.dart';
 import '../categories/categories_providers.dart';
 import '../notes/note_share.dart';
@@ -153,9 +154,19 @@ class FolderDetailScreen extends ConsumerWidget {
               ListTile(
                 leading: const Icon(Icons.delete_outline),
                 title: const Text('Mover a papelera'),
-                onTap: () {
-                  ref.read(notesRepositoryProvider).softDelete(note.id);
+                onTap: () async {
                   Navigator.pop(sheetContext);
+                  final ok = await showConfirmDialog(
+                    context,
+                    icon: Icons.delete_outline,
+                    title: '¿Mover a papelera?',
+                    message:
+                        'Podrás restaurarla desde la papelera durante 30 días. Pasado ese tiempo se eliminará definitivamente.',
+                    confirmLabel: 'Mover',
+                  );
+                  if (ok) {
+                    await ref.read(notesRepositoryProvider).softDelete(note.id);
+                  }
                 },
               ),
             ],

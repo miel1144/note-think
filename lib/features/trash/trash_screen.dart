@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../core/db/models/note.dart';
 import '../../core/storage/repositories.dart';
+import '../../shared/widgets/confirm_dialog.dart';
 import '../../shared/widgets/note_card.dart';
 import '../notes/notes_providers.dart';
 
@@ -22,28 +23,16 @@ class TrashScreen extends ConsumerWidget {
                 ? const SizedBox.shrink()
                 : TextButton(
                     onPressed: () async {
-                      final ok = await showDialog<bool>(
-                        context: context,
-                        builder: (dialogContext) => AlertDialog(
-                          title: const Text('¿Vaciar papelera?'),
-                          content: const Text(
-                            'Se eliminarán todas las notas de la papelera de forma permanente.',
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () =>
-                                  Navigator.pop(dialogContext, false),
-                              child: const Text('Cancelar'),
-                            ),
-                            FilledButton(
-                              onPressed: () =>
-                                  Navigator.pop(dialogContext, true),
-                              child: const Text('Vaciar'),
-                            ),
-                          ],
-                        ),
+                      final ok = await showConfirmDialog(
+                        context,
+                        icon: Icons.delete_forever,
+                        title: '¿Vaciar papelera?',
+                        message:
+                            'Se eliminarán ${notes.length} ${notes.length == 1 ? "nota" : "notas"} de forma permanente. Esta acción no se puede deshacer.',
+                        confirmLabel: 'Vaciar',
+                        destructive: true,
                       );
-                      if (ok == true) {
+                      if (ok) {
                         await ref.read(notesRepositoryProvider).emptyTrash();
                       }
                     },
@@ -79,13 +68,35 @@ class TrashScreen extends ConsumerWidget {
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
             itemCount: notes.length,
             separatorBuilder: (_, _) => const SizedBox(height: 12),
-            itemBuilder: (_, i) {
+            itemBuilder: (itemContext, i) {
               final n = notes[i];
               return Dismissible(
                 key: ValueKey('trash-${n.id}'),
-                background: Container(),
+                background: _swipeBg(
+                  itemContext,
+                  align: Alignment.centerLeft,
+                  icon: Icons.delete_forever,
+                ),
+                secondaryBackground: _swipeBg(
+                  itemContext,
+                  align: Alignment.centerRight,
+                  icon: Icons.delete_forever,
+                ),
+                confirmDismiss: (_) async {
+                  return showConfirmDialog(
+                    itemContext,
+                    icon: Icons.delete_forever,
+                    title: '¿Eliminar definitivamente?',
+                    message:
+                        'Esta nota se borrará para siempre y no se puede recuperar.',
+                    confirmLabel: 'Eliminar',
+                    destructive: true,
+                  );
+                },
                 onDismissed: (_) async {
-                  await ref.read(notesRepositoryProvider).permanentDelete(n.id);
+                  await ref
+                      .read(notesRepositoryProvider)
+                      .permanentDelete(n.id);
                 },
                 child: NoteCard(
                   note: n,
@@ -97,6 +108,23 @@ class TrashScreen extends ConsumerWidget {
           );
         },
       ),
+    );
+  }
+
+  Widget _swipeBg(
+    BuildContext ctx, {
+    required Alignment align,
+    required IconData icon,
+  }) {
+    final scheme = Theme.of(ctx).colorScheme;
+    return Container(
+      alignment: align,
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      decoration: BoxDecoration(
+        color: scheme.error.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(22),
+      ),
+      child: Icon(icon, color: scheme.error),
     );
   }
 
@@ -124,11 +152,27 @@ class TrashScreen extends ConsumerWidget {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.delete_forever),
+                leading: Icon(
+                  Icons.delete_forever,
+                  color: Theme.of(context).colorScheme.error,
+                ),
                 title: const Text('Eliminar definitivamente'),
-                onTap: () {
-                  ref.read(notesRepositoryProvider).permanentDelete(n.id);
+                onTap: () async {
                   Navigator.pop(sheetContext);
+                  final ok = await showConfirmDialog(
+                    context,
+                    icon: Icons.delete_forever,
+                    title: '¿Eliminar definitivamente?',
+                    message:
+                        'Esta nota se borrará para siempre y no se puede recuperar.',
+                    confirmLabel: 'Eliminar',
+                    destructive: true,
+                  );
+                  if (ok) {
+                    await ref
+                        .read(notesRepositoryProvider)
+                        .permanentDelete(n.id);
+                  }
                 },
               ),
             ],

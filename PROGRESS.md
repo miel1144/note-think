@@ -206,6 +206,29 @@ Hecho y compilando (APK debug):
 - La preferencia **persiste** entre arranques de la app (a diferencia de los filtros,
   que son de sesión).
 
+### Fase 3 — Confirmaciones de borrado (2026-10-14)
+- Nuevo `lib/shared/widgets/confirm_dialog.dart`:
+  - `showConfirmDialog(context, title, message, confirmLabel, cancelLabel,
+    destructive, icon)` — `AlertDialog` con botón `FilledButton` que vira a
+    `colorScheme.error` cuando `destructive: true`, devolviendo `bool`.
+  - Cierra con `Navigator.pop` y devuelve `false` por defecto si se descarta
+    el dialog (tap fuera / back).
+- Confirmaciones añadidas:
+  - `NotesListScreen`: "Mover a papelera" → "¿Mover a papelera? Podrás
+    restaurarla desde la papelera durante 30 días…" (no destructivo, recuperable)
+  - `FolderDetailScreen`: mismo mensaje
+  - `TrashScreen`: "Eliminar definitivamente" (sheet) → "¿Eliminar
+    definitivamente? Esta nota se borrará para siempre y no se puede
+    recuperar." (`destructive: true` → botón rojo)
+  - `TrashScreen`: swipe-to-delete via `Dismissible.confirmDismiss` →
+    mismo dialog destructivo. Si el usuario cancela, el `Dismissible`
+    devuelve la nota a su sitio automáticamente
+  - `TrashScreen`: "Vaciar papelera" → unificado con el helper, ahora
+    muestra el conteo ("Se eliminarán N notas de forma permanente…")
+- El background del `Dismissible` ahora muestra un fondo rojo tenue con
+  icono `delete_forever` en `colorScheme.error` (antes era `Container()`
+  vacío, swipe invisible). Funciona en ambas direcciones.
+
 ### Fase 3 — Compartir nota (2026-10-14)
 - `share_plus: ^13.3.1` añadido a `pubspec.yaml` (estaba en la tabla de stack
   del brief pero nunca se había instalado)
