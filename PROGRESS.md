@@ -65,7 +65,7 @@ Aplicados como **gradiente radial en la esquina superior derecha** del card de l
 - Ordenamiento flexible (modificación, creación, título, color)
 
 ### Fase 3 — Power user
-- Compartir nota vía share sheet de Android
+- ✓ Compartir nota vía share sheet de Android
 - Bloqueo con biometría (por nota o app completa)
 - Recordatorios locales (notificación a fecha/hora)
 - Widget Android (atajo en home screen)
@@ -206,6 +206,31 @@ Hecho y compilando (APK debug):
 - La preferencia **persiste** entre arranques de la app (a diferencia de los filtros,
   que son de sesión).
 
+### Fase 3 — Compartir nota (2026-10-14)
+- `share_plus: ^13.3.1` añadido a `pubspec.yaml` (estaba en la tabla de stack
+  del brief pero nunca se había instalado)
+- Nuevo `lib/features/notes/note_share.dart`:
+  - `NoteShare.serialize(note)` arma el texto: título (trim) + doble salto + body
+    (líneas no vacías de `bodyPlain` unidas con `\n`). Si título y body están
+    vacíos devuelve `''`.
+  - `NoteShare.share(context, note, sharePositionOrigin)`:
+    - Si la nota está vacía, snackbar "No hay nada que compartir" y no abre
+      el sheet del sistema.
+    - Si no, llama a `SharePlus.instance.share(ShareParams(text, subject))`.
+    - `sharePositionOrigin` es el rect del ListTile que disparó la acción
+      (necesario en iPad, ignorado en Android); se captura del `BuildContext`
+      del sheet antes de cerrarlo.
+- Botón "Compartir" añadido al options sheet (long-press) de:
+  - `NotesListScreen._showActions` — entre "Quitar de carpeta" y "Mover a papelera"
+  - `FolderDetailScreen._showNoteActions` — entre "Quitar de esta carpeta" y
+    "Mover a papelera"
+- Icono: `Icons.ios_share` (consistente con el estilo del sistema; el share
+  sheet de Android lo muestra igual que `share_outlined`).
+- Subject del share: el título de la nota, o "Nota" si no tiene.
+- Por ahora comparte solo texto plano (sin imágenes embebidas). Las imágenes
+  inline de Quill quedan serializadas como texto vacío; el export rico
+  (PDF/ZIP) es la Fase 4.
+
 ### Fase 2 — Ordenamiento flexible (2026-10-14)
 - Nuevo módulo `lib/features/notes/notes_sort.dart`:
   - `enum NotesSortField { modified, created, title, color }`
@@ -265,9 +290,8 @@ No indican fallo y no se pueden silenciar desde la app; se filtran con `adb logc
 
 ## Próximos pasos
 
-1. **Fase 2 (continuación)**: validar ordenamiento en dispositivo real
-2. **Fase 3 — Power user**: compartir nota, biometría, recordatorios, widget Android
-3. **Fase 4 — Export**: PDF individual + ZIP de carpeta
+1. **Fase 3 (continuación)**: bloquear con biometría, recordatorios, widget Android
+2. **Fase 4 — Export**: PDF individual + ZIP de carpeta (estos sí incluirán imágenes)
 
 ## Convenciones
 

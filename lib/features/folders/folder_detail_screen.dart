@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/storage/repositories.dart';
 import '../../shared/widgets/note_card.dart';
 import '../categories/categories_providers.dart';
+import '../notes/note_share.dart';
 import '../notes/notes_providers.dart';
 
 class FolderDetailScreen extends ConsumerWidget {
@@ -132,6 +133,21 @@ class FolderDetailScreen extends ConsumerWidget {
                       .read(notesRepositoryProvider)
                       .setCategory(note.id, null);
                   Navigator.pop(sheetContext);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.ios_share),
+                title: const Text('Compartir'),
+                onTap: () {
+                  final box = sheetContext.findRenderObject() as RenderBox?;
+                  Navigator.pop(sheetContext);
+                  NoteShare.share(
+                    context,
+                    note,
+                    sharePositionOrigin: box != null
+                        ? box.localToGlobal(Offset.zero) & box.size
+                        : null,
+                  );
                 },
               ),
               ListTile(

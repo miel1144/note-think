@@ -21,6 +21,7 @@ dependencies:
   isar_community_flutter_libs: ^3.3.2
   path: ^1.9.1
   path_provider: ^2.1.6
+  share_plus: ^13.3.1
   shared_preferences: ^2.5.6
 
 dev_dependencies:

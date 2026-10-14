@@ -9,6 +9,7 @@ import '../../shared/widgets/neu_surface.dart';
 import '../../shared/widgets/note_card.dart';
 import '../folders/folder_picker_sheet.dart';
 import 'filter_bar.dart';
+import 'note_share.dart';
 import 'notes_filter.dart';
 import 'notes_layout.dart';
 import 'notes_sort.dart';
@@ -155,6 +156,21 @@ class NotesListScreen extends ConsumerWidget {
                     Navigator.pop(sheetContext);
                   },
                 ),
+              ListTile(
+                leading: const Icon(Icons.ios_share),
+                title: const Text('Compartir'),
+                onTap: () {
+                  final box = sheetContext.findRenderObject() as RenderBox?;
+                  Navigator.pop(sheetContext);
+                  NoteShare.share(
+                    context,
+                    note,
+                    sharePositionOrigin: box != null
+                        ? box.localToGlobal(Offset.zero) & box.size
+                        : null,
+                  );
+                },
+              ),
               ListTile(
                 leading: const Icon(Icons.delete_outline),
                 title: const Text('Mover a papelera'),
