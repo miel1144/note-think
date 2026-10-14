@@ -158,6 +158,29 @@ Hecho y compilando (APK debug):
   `bodyPlainElementContains` (todos case-insensitive, todos AND'd entre tokens). El prefijo
   sigue indexado; el contains es filter nativo de Isar (no vuelve a filtrar en Dart).
 
+### Fase 2 — Filtros rápidos (2026-10-14)
+- Nuevo módulo `lib/features/notes/notes_filter.dart`:
+  - `NotesFilter` (inmutable): `categoryId: int?`, `accentHex: String?`, `pinnedOnly: bool`.
+    Sentinel `NotesFilter.noAccentSentinel = '__none__'` distingue "sin color" de "todos los
+    colores" en el mismo campo.
+  - `NotesFilterController` (Notifier): `setCategory / setAccent / setPinnedOnly / clear`.
+  - `filteredNotesProvider`: combina `notesListProvider` + `notesFilterProvider` y filtra
+    en memoria. Es correcto para Fase 2; si se nota lento con miles de notas se mueve
+    a Isar con un query compuesto.
+- `lib/features/notes/filter_sheets.dart`: tres bottom sheets de selección (carpeta,
+  color, fijadas) con `setState` y radio visual de selección. Cada uno expone una
+  función `showXxxFilterSheet(context, ref)`.
+- `lib/features/notes/filter_bar.dart`: barra horizontal scrollable bajo el AppBar con
+  tres chips neumórficos (Carpeta / Color / Fijadas). Cuando hay algún filtro activo
+  el chip se ve "activo" (fondo + borde) y se suma un cuarto chip "Limpiar" con icono
+  de X. El chip de color muestra el swatch elegido (o el icono de bloque para "sin color").
+- `NotesListScreen`: ahora observa `filteredNotesProvider` y `notesFilterProvider`. Cuando
+  hay notas pero los filtros no matchean, muestra un empty state específico con
+  botón "Limpiar filtros" (vs. el empty state original "Aún no hay notas" cuando no
+  hay nada).
+- Filtros son **de sesión** (no persisten al cerrar la app) — más simple y suficiente
+  para Fase 2. Si se quiere persistir, candidato natural: `shared_preferences`.
+
 ### Pendientes de Fase 1
 - _(ninguno — verificado en dispositivo real el 2026-10-14)_
 
@@ -186,7 +209,8 @@ No indican fallo y no se pueden silenciar desde la app; se filtran con `adb logc
 
 ## Próximos pasos
 
-1. **Fase 2**: filtros rápidos, vista lista/grid y ordenamiento (pin ya existe)
+1. **Fase 2 (continuación)**: vista lista/grid toggleable, ordenamiento flexible
+2. Validar filtros rápidos en dispositivo real y commitear
 
 ## Convenciones
 

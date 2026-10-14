@@ -8,14 +8,16 @@ import '../../core/db/models/note.dart';
 import '../../shared/widgets/neu_surface.dart';
 import '../../shared/widgets/note_card.dart';
 import '../folders/folder_picker_sheet.dart';
-import 'notes_providers.dart';
+import 'filter_bar.dart';
+import 'notes_filter.dart';
 
 class NotesListScreen extends ConsumerWidget {
   const NotesListScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final notesAsync = ref.watch(notesListProvider);
+    final notesAsync = ref.watch(filteredNotesProvider);
+    final filter = ref.watch(notesFilterProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -44,22 +46,36 @@ class NotesListScreen extends ConsumerWidget {
           const SizedBox(width: 8),
         ],
       ),
-      body: notesAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error: $e')),
-        data: (notes) {
-          if (notes.isEmpty) return const _EmptyState();
-          return ListView.separated(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
-            itemCount: notes.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 12),
-            itemBuilder: (_, i) => NoteCard(
-              note: notes[i],
-              onTap: () => context.push('/edit/${notes[i].id}'),
-              onLongPress: () => _showActions(context, ref, notes[i]),
+      body: Column(
+        children: [
+          const NotesFilterBar(),
+          Expanded(
+            child: notesAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(child: Text('Error: $e')),
+              data: (notes) {
+                if (notes.isEmpty) {
+                  return filter.hasAny
+                      ? _EmptyFilteredState(
+                          onClear: () =>
+                              ref.read(notesFilterProvider.notifier).clear(),
+                        )
+                      : const _EmptyState();
+                }
+                return ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
+                  itemCount: notes.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 12),
+                  itemBuilder: (_, i) => NoteCard(
+                    note: notes[i],
+                    onTap: () => context.push('/edit/${notes[i].id}'),
+                    onLongPress: () => _showActions(context, ref, notes[i]),
+                  ),
+                );
+              },
             ),
-          );
-        },
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => context.push('/edit'),
@@ -268,6 +284,61 @@ class _EmptyState extends StatelessWidget {
               textAlign: TextAlign.center,
               style: t.textTheme.bodyMedium?.copyWith(
                 color: t.colorScheme.onSurface.withValues(alpha: 0.6),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyFilteredState extends StatelessWidget {
+  const _EmptyFilteredState({required this.onClear});
+  final VoidCallback onClear;
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.filter_alt_off_outlined,
+              size: 64,
+              color: t.colorScheme.onSurface.withValues(alpha: 0.30),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Sin coincidencias',
+              style: t.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'No hay notas que coincidan con los filtros activos.',
+              textAlign: TextAlign.center,
+              style: t.textTheme.bodyMedium?.copyWith(
+                color: t.colorScheme.onSurface.withValues(alpha: 0.6),
+              ),
+            ),
+            const SizedBox(height: 16),
+            NeuSurface(
+              radius: 14,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 18,
+                vertical: 10,
+              ),
+              onTap: onClear,
+              child: const Text(
+                'Limpiar filtros',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ],
