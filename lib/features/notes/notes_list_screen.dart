@@ -11,13 +11,14 @@ import '../folders/folder_picker_sheet.dart';
 import 'filter_bar.dart';
 import 'notes_filter.dart';
 import 'notes_layout.dart';
+import 'notes_sort.dart';
 
 class NotesListScreen extends ConsumerWidget {
   const NotesListScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final notesAsync = ref.watch(filteredNotesProvider);
+    final notesAsync = ref.watch(displayedNotesProvider);
     final filter = ref.watch(notesFilterProvider);
     final layout = ref.watch(notesLayoutProvider).value ?? NotesLayout.list;
 

@@ -5,6 +5,8 @@ import '../../core/theme/app_colors.dart';
 import '../categories/categories_providers.dart';
 import 'filter_sheets.dart';
 import 'notes_filter.dart';
+import 'notes_sort.dart';
+import 'sort_sheet.dart';
 
 class NotesFilterBar extends ConsumerWidget {
   const NotesFilterBar({super.key});
@@ -14,6 +16,7 @@ class NotesFilterBar extends ConsumerWidget {
     final filter = ref.watch(notesFilterProvider);
     final foldersAsync = ref.watch(foldersListProvider);
     final folderName = _folderName(foldersAsync.value, filter.categoryId);
+    final sort = ref.watch(notesSortProvider).value ?? NotesSort.defaultSort;
 
     return SizedBox(
       height: 48,
@@ -53,6 +56,13 @@ class NotesFilterBar extends ConsumerWidget {
             active: filter.pinnedOnly,
             onTap: () => showPinnedFilterSheet(context, ref),
           ),
+          const SizedBox(width: 8),
+          _FilterChip(
+            icon: _sortIcon(sort),
+            label: sort.shortLabel,
+            active: !sort.isDefault,
+            onTap: () => showSortSheet(context, ref),
+          ),
           if (filter.hasAny) ...[
             const SizedBox(width: 8),
             _ClearChip(
@@ -64,6 +74,21 @@ class NotesFilterBar extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  IconData _sortIcon(NotesSort sort) {
+    switch (sort.field) {
+      case NotesSortField.modified:
+        return sort.direction == NotesSortDirection.desc
+            ? Icons.history
+            : Icons.history_toggle_off;
+      case NotesSortField.created:
+        return Icons.event_outlined;
+      case NotesSortField.title:
+        return Icons.sort_by_alpha;
+      case NotesSortField.color:
+        return Icons.palette_outlined;
+    }
   }
 
   String? _folderName(List<dynamic>? folders, int? id) {

@@ -60,8 +60,9 @@ Aplicados como **gradiente radial en la esquina superior derecha** del card de l
 - Notas fijadas (pin) — acceso rápido
 - Color de nota (picker con los 4 colores)
 - Vista lista / grid toggleable
-- Filtros rápidos (carpeta, tag, color, fijadas)
+- Filtros rápidos (carpeta, color, fijadas)
 - Auto-guardado (sin botón "guardar")
+- Ordenamiento flexible (modificación, creación, título, color)
 
 ### Fase 3 — Power user
 - Compartir nota vía share sheet de Android
@@ -205,6 +206,37 @@ Hecho y compilando (APK debug):
 - La preferencia **persiste** entre arranques de la app (a diferencia de los filtros,
   que son de sesión).
 
+### Fase 2 — Ordenamiento flexible (2026-10-14)
+- Nuevo módulo `lib/features/notes/notes_sort.dart`:
+  - `enum NotesSortField { modified, created, title, color }`
+  - `enum NotesSortDirection { asc, desc }`
+  - `NotesSort` (inmutable) con `field`, `direction`, helpers `fieldLabel` /
+    `shortLabel` (chip-friendly) / `isDefault` (true si es modified-desc).
+  - `NotesSortController` (`AsyncNotifier<NotesSort>`) persiste en
+    `shared_preferences` bajo `notes.sort.field` y `notes.sort.direction`.
+    Default: `modified, desc`. Métodos: `setField`, `setDirection`, `reset`.
+  - `displayedNotesProvider`: encadena `filteredNotesProvider` + `notesSortProvider`
+    y aplica el sort **siempre con pinned primero**: parte en (fijadas, no fijadas),
+    ordena cada grupo por el criterio elegido, concatena. Dentro de cada grupo el
+    empate se rompe por `updatedAt` en la dirección opuesta al sort principal.
+  - Para "Color" el orden es por índice en `AppColors.noteAccents`; las notas sin
+    color se mandan al final (sentinel 9999) para no mezclarse con las coloreadas.
+  - Al cambiar de campo, la dirección se ajusta al default sensato del campo
+    (modified/created → desc, title/color → asc). El usuario puede invertirla luego.
+- `lib/features/notes/sort_sheet.dart`: bottom sheet con dos secciones ("POR" y
+  "DIRECCIÓN"). Cada campo muestra icono + nombre + hint corto. La dirección es
+  un segmented control neumórfico (ascendente / descendente). Aparece botón
+  "Restablecer" solo si no se está en el default.
+- `NotesFilterBar`: 4º chip "Ordenar" con icono dinámico según campo
+  (`history` / `history_toggle_off` para modified, `event_outlined` para created,
+  `sort_by_alpha` para título, `palette_outlined` para color) y label compacto
+  ("Recientes", "Antiguas", "Creación ↓/↑", "A-Z"/"Z-A", "Por color"). Se marca
+  "activo" solo cuando NO se está en el default (modified-desc), para no inflar
+  la barra cuando el usuario nunca tocó el orden.
+- `NotesListScreen` ahora observa `displayedNotesProvider` en vez de
+  `filteredNotesProvider`. La barra de filtros sigue mostrando los chips de
+  filtro (carpeta/color/fijadas) más el de orden — todos en el mismo scroll.
+
 ### Pendientes de Fase 1
 - _(ninguno — verificado en dispositivo real el 2026-10-14)_
 
@@ -233,8 +265,9 @@ No indican fallo y no se pueden silenciar desde la app; se filtran con `adb logc
 
 ## Próximos pasos
 
-1. **Fase 2 (continuación)**: ordenamiento flexible (modificación, creación, título, color)
-2. Validar toggle lista/grid en dispositivo real y commitear
+1. **Fase 2 (continuación)**: validar ordenamiento en dispositivo real
+2. **Fase 3 — Power user**: compartir nota, biometría, recordatorios, widget Android
+3. **Fase 4 — Export**: PDF individual + ZIP de carpeta
 
 ## Convenciones
 
