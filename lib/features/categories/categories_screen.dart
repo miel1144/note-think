@@ -139,7 +139,7 @@ class CategoriesScreen extends ConsumerWidget {
   }
 }
 
-class _FolderTile extends StatelessWidget {
+class _FolderTile extends ConsumerWidget {
   const _FolderTile({
     required this.folder,
     required this.onTap,
@@ -152,7 +152,12 @@ class _FolderTile extends StatelessWidget {
   final VoidCallback onDelete;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final countAsync = ref.watch(noteCountByFolderProvider(folder.id));
+    final count = countAsync.maybeWhen(data: (n) => n, orElse: () => 0);
+    final muted = Theme.of(context).colorScheme.onSurface.withValues(
+      alpha: 0.55,
+    );
     return NeuSurface(
       radius: 18,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -161,12 +166,7 @@ class _FolderTile extends StatelessWidget {
       child: Row(
         children: [
           const SizedBox(width: 10),
-          Icon(
-            Icons.folder_outlined,
-            color: Theme.of(context).colorScheme.onSurface.withValues(
-              alpha: 0.7,
-            ),
-          ),
+          Icon(Icons.folder_outlined, color: muted),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
@@ -175,6 +175,13 @@ class _FolderTile extends StatelessWidget {
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
               ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(right: 4),
+            child: Text(
+              '$count ${count == 1 ? 'nota' : 'notas'}',
+              style: TextStyle(fontSize: 12, color: muted),
             ),
           ),
           IconButton(

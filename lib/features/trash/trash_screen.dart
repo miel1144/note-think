@@ -90,6 +90,7 @@ class TrashScreen extends ConsumerWidget {
                 child: NoteCard(
                   note: n,
                   onTap: () => _showOptions(context, ref, n),
+                  onLongPress: () => _showOptions(context, ref, n),
                 ),
               );
             },

@@ -10,3 +10,10 @@ final foldersListProvider = StreamProvider<List<CategoryEntity>>(
 final folderByIdProvider = FutureProvider.family<CategoryEntity?, int>(
   (ref, id) => ref.watch(foldersRepositoryProvider).getById(id),
 );
+
+final noteCountByFolderProvider = StreamProvider.family<int, int>((ref, id) {
+  return ref
+      .watch(notesRepositoryProvider)
+      .watchByCategory(id)
+      .map((notes) => notes.length);
+});

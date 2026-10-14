@@ -157,16 +157,47 @@ class NotesRepository {
     });
   }
 
+  static const Duration trashRetention = Duration(days: 30);
+
+  Future<int> purgeExpiredTrash({DateTime? now}) async {
+    final cutoff = (now ?? DateTime.now()).subtract(trashRetention);
+    return _isar.writeTxn(() async {
+      final expired = await _col
+          .filter()
+          .deletedAtIsNotNull()
+          .deletedAtLessThan(cutoff)
+          .findAll();
+      if (expired.isEmpty) return 0;
+      final ids = expired.map((n) => n.id).toList();
+      await _col.deleteAll(ids);
+      return ids.length;
+    });
+  }
+
   Future<List<NoteEntity>> search(String term) async {
-    final t = term.trim().toLowerCase();
-    if (t.isEmpty) return [];
-    final all = await _col.filter().deletedAtIsNull().findAll();
-    return all.where((n) {
-      if (n.title.toLowerCase().contains(t)) return true;
-      for (final line in n.bodyPlain) {
-        if (line.toLowerCase().contains(t)) return true;
-      }
-      return false;
-    }).toList()..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    final tokens = term
+        .trim()
+        .toLowerCase()
+        .split(RegExp(r'\s+'))
+        .where((t) => t.isNotEmpty)
+        .toList();
+    if (tokens.isEmpty) return const [];
+
+    QueryBuilder<NoteEntity, NoteEntity, QAfterFilterCondition> q = _col
+        .filter()
+        .deletedAtIsNull();
+    for (final token in tokens) {
+      q = q.group((g) {
+        return g
+            .titleStartsWith(token, caseSensitive: false)
+            .or()
+            .titleContains(token, caseSensitive: false)
+            .or()
+            .bodyPlainElementStartsWith(token, caseSensitive: false)
+            .or()
+            .bodyPlainElementContains(token, caseSensitive: false);
+      });
+    }
+    return q.sortByUpdatedAtDesc().findAll();
   }
 }

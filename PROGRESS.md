@@ -142,18 +142,34 @@ Hecho y compilando (APK debug):
   mediante un diálogo cuando el buscador está vacío (antes no hacía nada porque
   `query.trim()` era `''` y la función salía temprano)
 
-### Otros pendientes de Fase 1
-- Papelera: auto-borrado a los 30 días (hoy solo manual)
-- Búsqueda: usar el índice de Isar en vez del filtro en memoria
-- Mantener pulsado en una nota de la papelera no hace nada
-- Verificar en dispositivo real el flujo completo (crear, editar, reabrir, imágenes)
-- Contador de notas por carpeta (mostrar `N notas` al lado del nombre en la lista)
+### Cierre de Fase 1
+- Papelera: `purgeExpiredTrash()` borra notas con `deletedAt < now - 30 días` y se ejecuta
+  en el arranque de la app (`main.dart`); `NotesRepository.trashRetention` documenta la constante
+- Búsqueda: tokeniza el término y usa `group()` con `titleStartsWith` OR `bodyPlainElementStartsWith`
+  por cada token — todo respaldado por los índices `title` y `bodyPlain` de Isar
+  (antes hacía `findAll()` y filtraba en memoria)
+- Long-press en nota de papelera: ahora abre el mismo sheet que el tap (restaurar / eliminar definitivamente)
+- Contador `N notas` (singular/plural) junto al nombre de cada carpeta, derivado de
+  `notesByFolderProvider` y expuesto vía `noteCountByFolderProvider` en `categories_providers.dart`
 
-### Otros pendientes de Fase 1
-- Papelera: auto-borrado a los 30 días (hoy solo manual)
-- Búsqueda: usar el índice de Isar en vez del filtro en memoria
-- Mantener pulsado en una nota de la papelera no hace nada
-- Verificar en dispositivo real el flujo completo (crear, editar, reabrir, imágenes)
+### Sesión 2026-10-14
+- Búsqueda por palabras dentro de la nota: ampliado a hybrid prefix+contains. Cada token
+  matchea con `titleStartsWith` OR `titleContains` OR `bodyPlainElementStartsWith` OR
+  `bodyPlainElementContains` (todos case-insensitive, todos AND'd entre tokens). El prefijo
+  sigue indexado; el contains es filter nativo de Isar (no vuelve a filtrar en Dart).
+
+### Pendientes de Fase 1
+- _(ninguno — verificado en dispositivo real el 2026-10-14)_
+
+### Backlog — optimizaciones futuras
+- **Búsqueda FTS por pre-tokenización** (opción 3, archivada el 2026-10-14 por si la búsqueda
+  se vuelve lenta con miles de notas): añadir un campo indexado `bodyWords: List<String>` a
+  `NoteEntity` con las palabras únicas normalizadas (lowercase, sin acentos, longitud ≥ 2) del
+  título + `bodyPlain`, mantenido en cada `upsert` y reconstruido en una migración
+  one-shot de los datos existentes. La query pasaría a hacer solo
+  `bodyWordsElementStartsWith(token).or().bodyWordsElementContains(token)` (todo indexado).
+  Tradeoffs: +1 escritura por guardado, +tamaño en disco, migración inicial obligatoria. Solo
+  aplicaría si la rama `contains` sin índice se nota lenta en datasets grandes.
 
 ### Ruido de logcat (no es un bug)
 Los mensajes `InputConnectionAdaptor: The input method toggled cursor monitoring on/off` e
@@ -170,9 +186,7 @@ No indican fallo y no se pueden silenciar desde la app; se filtran con `adb logc
 
 ## Próximos pasos
 
-1. Lógica de carpetas y tags (ver arriba)
-2. Cerrar pendientes de Fase 1
-3. Fase 2: pin ya existe; faltan filtros rápidos, vista lista/grid y ordenamiento
+1. **Fase 2**: filtros rápidos, vista lista/grid y ordenamiento (pin ya existe)
 
 ## Convenciones
 

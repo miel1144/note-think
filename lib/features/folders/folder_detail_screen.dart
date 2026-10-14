@@ -5,11 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/storage/repositories.dart';
 import '../../shared/widgets/note_card.dart';
 import '../categories/categories_providers.dart';
-
-final notesByFolderProvider =
-    StreamProvider.family<List, int>((ref, folderId) {
-  return ref.watch(notesRepositoryProvider).watchByCategory(folderId);
-});
+import '../notes/notes_providers.dart';
 
 class FolderDetailScreen extends ConsumerWidget {
   const FolderDetailScreen({super.key, required this.folderId});

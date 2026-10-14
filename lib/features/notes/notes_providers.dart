@@ -9,6 +9,11 @@ final notesListProvider = StreamProvider<List<NoteEntity>>(
   (ref) => ref.watch(notesRepositoryProvider).watchActive(),
 );
 
+final notesByFolderProvider = StreamProvider.family<List<NoteEntity>, int>(
+  (ref, folderId) =>
+      ref.watch(notesRepositoryProvider).watchByCategory(folderId),
+);
+
 final trashListProvider = StreamProvider<List<NoteEntity>>(
   (ref) => ref.watch(notesRepositoryProvider).watchTrash(),
 );
