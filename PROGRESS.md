@@ -64,9 +64,10 @@ Aplicados como **gradiente radial en la esquina superior derecha** del card de l
 - Auto-guardado (sin botón "guardar")
 - Ordenamiento flexible (modificación, creación, título, color)
 
-### Fase 3 — Power user
+### Fase 3 — Power user — **CERRADA 2026-10-14**
 - ✓ Compartir nota vía share sheet de Android
-- ✓ Notas privadas (palabra clave + sesión de 5 min, lock on background)
+- ✓ Notas privadas (palabra clave + sesión de 5 min, lock on background,
+  aislamiento total del flujo principal)
 - ✓ Recordatorios locales (con permiso Android 13+, cancel on delete,
   leak-safe en privadas)
 - Bloqueo con biometría (descartado: las notas privadas cubren el caso
@@ -74,9 +75,21 @@ Aplicados como **gradiente radial en la esquina superior derecha** del card de l
 - Widget Android (atajo en home screen)
 - Ordenamiento flexible (modificación, creación, título, color)
 
-### Fase 4 — Export
-- Exportar nota individual a PDF (vía paquete `pdf` + `printing`)
-- Exportar carpeta completa a ZIP (vía `archive` — cada nota como PDF + carpeta de imágenes)
+### Fase 4 — Export + Spotify
+- Exportar nota individual a `.txt` (texto plano) o `.md` (markdown)
+  vía share sheet de Android
+- Exportar carpeta completa a ZIP (vía `archive` — cada nota como PDF
+  + carpeta de imágenes)
+- Vincular canciones de Spotify a una nota (OAuth PKCE + Web API),
+  con preview de 30s reproducible desde la nota
+
+### Extras (ideas diferidas, no en roadmap activo)
+- Widget Android (atajo en home screen)
+- Backlinks entre notas
+- Dibujo libre / sketches
+- IA / resúmenes
+- Biometría local (huella / cara) — sustituido por la palabra clave
+  de notas privadas
 
 ### Descartado a propósito (mantener simple)
 - Colaboración en tiempo real
