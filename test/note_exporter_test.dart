@@ -218,6 +218,45 @@ void main() {
       expect(md, 'T\n\nlinea');
     });
   });
+
+  group('NoteExporter.toPdf', () {
+    test('produces non-empty PDF for a note with text', () async {
+      final note = _note(
+        title: 'Mi nota',
+        bodyPlain: const ['hola', 'mundo'],
+        bodyDelta: jsonEncode([
+          {'insert': 'hola mundo\n'},
+        ]),
+      );
+      final bytes = await NoteExporter.toPdf(note);
+      expect(bytes.length, greaterThan(100));
+      expect(String.fromCharCodes(bytes.sublist(0, 4)), '%PDF');
+    });
+
+    test('produces empty bytes for an empty note', () async {
+      final note = _note(
+        title: '',
+        bodyPlain: const [],
+        bodyDelta: '[]',
+      );
+      final bytes = await NoteExporter.toPdf(note);
+      expect(bytes, isEmpty);
+    });
+
+    test('includes title in PDF', () async {
+      final note = _note(
+        title: 'TituloVisible',
+        bodyPlain: const ['cuerpo'],
+        bodyDelta: jsonEncode([
+          {'insert': 'cuerpo\n'},
+        ]),
+      );
+      final bytes = await NoteExporter.toPdf(note);
+      expect(bytes.length, greaterThan(1000));
+      final header = String.fromCharCodes(bytes.sublist(0, 5));
+      expect(header, '%PDF-');
+    });
+  });
 }
 
 NoteEntity _note({
