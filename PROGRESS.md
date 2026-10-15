@@ -76,56 +76,53 @@ Aplicados como **gradiente radial en la esquina superior derecha** del card de l
 ### Fase 4 — Export + Spotify
 - ✓ Exportar nota individual a `.txt` (texto plano) o `.md` (markdown)
   vía share sheet de Android
+- ✓ Exportar nota individual a **PDF con imágenes embebidas** vía
+  share sheet o guardando en `Downloads/NoteThink/`
 - Exportar carpeta completa a ZIP (vía `archive` — cada nota como PDF
   + carpeta de imágenes)
 - Vincular canciones de Spotify a una nota (OAuth PKCE + Web API),
   con preview de 30s reproducible desde la nota
 
-### Sesión 2026-10-15 — Fase 4: export individual
-- Nuevo `lib/features/notes/note_exporter.dart`:
-  - `NoteExportFormat { markdown, text }`.
-  - `NoteExporter.toText(note)`: arma título + bodyPlain (mismo formato que
-    el Compartir plain actual).
-  - `NoteExporter.toMarkdown(note)`: parsea `bodyDelta` con
-    `Operation.fromJson` (paquete `dart_quill_delta` reexportado por
-    `flutter_quill/quill_delta.dart`). Render por líneas con:
-    - **Bloque**: H1–H6 (`#` x nivel), blockquote (`> `), code-block
-      (envoltura ``` ```), bullet/ordered list, check list `- [x] / - [ ]`.
-    - **Inline**: bold (`**x**`), italic (`_x_`), strike (`~~x~~`),
-      underline (`<u>x</u>`, sin markdown estándar), code (`` `x` ``),
-      link (`[x](url)`).
-    - Embeds: `image` → `![caption](path)`, `video` → 🎬 path.
-    - Orden de wrap de inline (de inner a outer): code → italic → bold →
-      strike → underline → link. Esto garantiza anidamiento correcto
-      (ej. `**_x_**` en vez de `_**x**_`).
-    - Si el delta no parsea, fallback a `toText`.
-  - `NoteExporter.exportFile(note, format)`: escribe el contenido a
-    `getTemporaryDirectory()/exports/<title> (<id>).<ext>` y devuelve
-    un `XFile` con `mimeType` (`text/markdown` o `text/plain`).
-  - `NoteExporter.share(note, format: …)`: `SharePlus.instance.share`
-    con `files: [XFile]` y `subject` = título (o "Nota").
-  - `NoteExporter.showExportSheet(context, note)`: helper que muestra el
-    bottom sheet de selección de formato y delega a `share`. Captura
-    el `sharePositionOrigin` del `context` para iPad. Si la nota está
-    vacía, snackbar "La nota no tiene contenido para exportar".
-- Nuevo `ExportEmptyException` para distinguir "nota vacía" de
-  otros errores de I/O.
-- Botón **"Exportar"** en el options sheet (long-press) de:
-  - `NotesListScreen._showActions` — entre "Compartir" y "Marcar como
-    privada". Abre `NoteExporter.showExportSheet`.
-  - `FolderDetailScreen._showNoteActions` — entre "Compartir" y el
-    toggle de privadas. Mismo helper.
-  - `PrivateNotesScreen._showActions` — entre "Compartir" y "Quitar de
-    privadas". Mismo helper.
-- Icono: `Icons.file_download_outlined` con chevron `Icons.chevron_right`
-  para señalar que abre submenú. Submenú: `Icons.description_outlined`
-  (Markdown) y `Icons.text_snippet_outlined` (Texto plano), con subtitle
-  corto.
-- Tests: nuevo `test/note_exporter_test.dart` con 13 casos que cubren
-  toText (3), toMarkdown para bold/italic, H1, listas (bullet/ordered/
-  checked/unchecked), blockquote, link, imagen, y fallback a texto
-  cuando el delta no parsea. Todos pasan, `flutter analyze` sin issues.
-- APK debug compila OK (249 MB).
+### Sesión 2026-10-15 — Fase 4: export individual + PDF + guardar en Descargas
+- **Markdown / Texto plano** vía share sheet (suscinto original)
+- **PDF** con imágenes embebidas vía share sheet:
+  - Nuevo `NoteExportFormat.pdf` + `NoteExporter.toPdf(note)` usando
+    el paquete `pdf` 3.13.1.
+  - Render A4 con márgenes 48pt. Soporta: título H1, headers H1–H6,
+    listas (bullet, ordered, checked `- [x]`, unchecked `- [ ]`),
+    blockquote (border izquierdo + cursiva), code-block (fondo gris
+    + monospace), inline rich text (bold, italic, strike, underline,
+    code inline, link azul subrayado).
+  - **Imágenes embebidas**: lee el archivo del path absoluto guardado
+    en `note_images/` (`File.readAsBytes()` → `pw.MemoryImage`) y
+    las inserta en línea con `BoxFit.contain`, altura 220pt. Las que
+    no se pueden leer se omiten silenciosamente.
+- **Guardar en Descargas** (nuevo, además de Compartir):
+  - `NoteFileSaver` + MethodChannel `note_think/save_file` →
+    `MainActivity.kt`.
+  - Lado Kotlin: API 29+ usa `MediaStore.Downloads` con subcarpeta
+    `Downloads/NoteThink/` (sin permisos, scoped storage). API ≤28
+    escribe directo a `getExternalStoragePublicDirectory(DOWNLOADS)/NoteThink/`.
+  - Lado Dart: pide `Permission.storage` solo si `device_info_plus`
+    reporta SDK < 29 (en 29+ es no-op). Lanza `SaveException` si
+    se deniega.
+  - Manifest: `<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+    android:maxSdkVersion="28" />`.
+- Flujo de UI ahora son **2 sheets**:
+  1. Formato: Markdown / Texto plano / PDF
+  2. Acción: Compartir / Guardar en Descargas (este último solo en
+     Android)
+- Snackbars de error específicos: "La nota no tiene contenido para
+  exportar/guardar", "Se necesita permiso de almacenamiento…",
+  "No se pudo guardar: <error>". Cuando guarda OK, snackbar
+  "Guardado en Descargas/<nombre>".
+- `build.gradle.kts`: `compileSdk = 37` (requerido por
+  `permission_handler_android`).
+- Dependencias añadidas: `pdf: ^3.13.1`, `permission_handler`,
+  `device_info_plus` (transitiva).
+- Tests: 3 casos nuevos para `toPdf` (PDF válido, vacío,
+  header `%PDF-`). Total: 16 tests pasan, `flutter analyze` sin
+  issues, APK debug compila.
 
 ### Extras (ideas diferidas, no en roadmap activo)
 - **Recordatorios locales** (movido desde Fase 3 el 2026-10-15). El
