@@ -13,6 +13,7 @@ import '../private_notes/private_notes_controller.dart';
 import '../reminders/reminder_picker.dart';
 import '../reminders/reminders_service.dart';
 import 'filter_bar.dart';
+import 'note_exporter.dart';
 import 'note_share.dart';
 import 'notes_filter.dart';
 import 'notes_layout.dart';
@@ -173,6 +174,15 @@ class NotesListScreen extends ConsumerWidget {
                         ? box.localToGlobal(Offset.zero) & box.size
                         : null,
                   );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.file_download_outlined),
+                title: const Text('Exportar'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  NoteExporter.showExportSheet(context, note);
                 },
               ),
               if (ref.watch(privateNotesProvider).hasPassword)

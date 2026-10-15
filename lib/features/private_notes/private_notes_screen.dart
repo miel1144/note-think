@@ -8,6 +8,7 @@ import '../../core/theme/app_colors.dart';
 import '../../shared/widgets/confirm_dialog.dart';
 import '../../shared/widgets/neu_surface.dart';
 import '../../shared/widgets/note_card.dart';
+import '../notes/note_exporter.dart';
 import '../notes/note_share.dart';
 import '../notes/notes_providers.dart';
 import '../private_notes/password_dialog.dart';
@@ -248,6 +249,15 @@ class _PrivateList extends ConsumerWidget {
                         ? box.localToGlobal(Offset.zero) & box.size
                         : null,
                   );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.file_download_outlined),
+                title: const Text('Exportar'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  NoteExporter.showExportSheet(context, note);
                 },
               ),
               ListTile(
