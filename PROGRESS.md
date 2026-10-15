@@ -64,12 +64,10 @@ Aplicados como **gradiente radial en la esquina superior derecha** del card de l
 - Auto-guardado (sin botón "guardar")
 - Ordenamiento flexible (modificación, creación, título, color)
 
-### Fase 3 — Power user — **CERRADA 2026-10-14**
+### Fase 3 — Power user — **CERRADA 2026-10-14** (recordatorios movidos a Extras 2026-10-15)
 - ✓ Compartir nota vía share sheet de Android
 - ✓ Notas privadas (palabra clave + sesión de 5 min, lock on background,
   aislamiento total del flujo principal)
-- ✓ Recordatorios locales (con permiso Android 13+, cancel on delete,
-  leak-safe en privadas)
 - Bloqueo con biometría (descartado: las notas privadas cubren el caso
   con contraseña, biometría no es necesario si el usuario ya tiene PIN)
 - Widget Android (atajo en home screen)
@@ -130,6 +128,12 @@ Aplicados como **gradiente radial en la esquina superior derecha** del card de l
 - APK debug compila OK (249 MB).
 
 ### Extras (ideas diferidas, no en roadmap activo)
+- **Recordatorios locales** (movido desde Fase 3 el 2026-10-15). El
+  código está, los permisos también, pero el `AndroidManifest.xml`
+  no declara los `<receiver>` del plugin `flutter_local_notifications`
+  (`ScheduledNotificationReceiver` + `ScheduledNotificationBootReceiver`),
+  por lo que la alarma del AlarmManager nunca se atiende. Fix mínimo
+  documentado arriba en "Fase 3 — Recordatorios locales".
 - Widget Android (atajo en home screen)
 - Backlinks entre notas
 - Dibujo libre / sketches
@@ -268,7 +272,7 @@ Hecho y compilando (APK debug):
 - La preferencia **persiste** entre arranques de la app (a diferencia de los filtros,
   que son de sesión).
 
-### Fase 3 — Recordatorios locales (2026-10-14)
+### Fase 3 — Recordatorios locales (2026-10-14) — **MOVIDO A EXTRAS 2026-10-15**
 - Dependencias añadidas:
   - `flutter_local_notifications: ^22.3.2`
   - `timezone: ^0.11.2`
@@ -329,6 +333,36 @@ Hecho y compilando (APK debug):
 - Si la nota se marca como privada y tenía recordatorio, se cancela
   (evita leak del título en la notif). Al desmarcar, el usuario
   tiene que reprogramar manualmente.
+
+**Por qué se movió a Extras (2026-10-15):** los recordatorios no se
+disparan en el dispositivo. Causa raíz: el `AndroidManifest.xml`
+declara los `<uses-permission>` (incluido `RECEIVE_BOOT_COMPLETED`)
+pero **NO declara los `<receiver>` del plugin** que son los que
+reciben la alarma del AlarmManager y muestran la notificación:
+- `com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver`
+- `com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver`
+  con intent-filter de `BOOT_COMPLETED` / `MY_PACKAGE_REPLACED`.
+
+El permiso sin el receiver no sirve de nada. Verificado contra el
+`AndroidManifest.xml` del ejemplo oficial del plugin
+(`flutter_local_notifications-22.3.2/example/android/app/src/main/AndroidManifest.xml`)
+— esos dos receivers están en el ejemplo y faltan en note-think.
+
+Causas secundarias que también juegan en contra:
+- `androidScheduleMode: inexactAllowWhileIdle` es battery-optimization
+  sensible (Doze retrasa inexactas 15-60+ min). Decisión previa de no
+  pedir `SCHEDULE_EXACT_ALARM` documentada en PROGRESS, pero el
+  problema del manifest es previo.
+- `tz.setLocalLocation(tz.UTC)` como fallback en `init()` si
+  `FlutterTimezone.getLocalTimezone()` falla — puede calcular el
+  horario con offset incorrecto.
+- `schedule()` traga el `catch (e)` con `debugPrint` solo en debug;
+  en release el error se silencia.
+
+El código se queda intacto, solo cambia la clasificación. Cuando se
+quiera retomar, el fix mínimo es agregar los dos `<receiver>` al
+manifest y re-evaluar el schedule mode (probablemente `exactAllowWhileIdle`
++ pedir `SCHEDULE_EXACT_ALARM` desde Ajustes del sistema).
 
 ### Fase 3 — Notas privadas sin tab en el nav (2026-10-14)
 - **Tab de Privadas eliminado del bottom nav**. Vuelve a 3 tabs
