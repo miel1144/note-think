@@ -78,10 +78,67 @@ Aplicados como **gradiente radial en la esquina superior derecha** del card de l
   vía share sheet de Android
 - ✓ Exportar nota individual a **PDF con imágenes embebidas** vía
   share sheet o guardando en `Downloads/NoteThink/`
+- ✓ **Vincular canciones, playlists y albums de Spotify a una nota**
+  (paste URL + oEmbed, sin OAuth ni client_id)
 - Exportar carpeta completa a ZIP (vía `archive` — cada nota como PDF
   + carpeta de imágenes)
-- Vincular canciones de Spotify a una nota (OAuth PKCE + Web API),
-  con preview de 30s reproducible desde la nota
+
+### Sesión 2026-10-15 — Fase 4: enlaces de Spotify (paste URL + oEmbed)
+- **Tipo**: track + playlist + album (artist queda fuera del alcance v1).
+- **Cómo se vincula**: el usuario pega una URL (`https://open.spotify.com/<track|playlist|album>/<id>`)
+  o un URI (`spotify:<type>:<id>`) en un dialog. Se valida con regex,
+  luego se hace `GET https://open.spotify.com/oembed?url=<encoded>`
+  para obtener `type`, `title`, `author_name`, `thumbnail_url`.
+  **Sin OAuth, sin client_id, sin login**. Limitación: depende de que
+  Spotify mantenga el endpoint oEmbed (hoy público).
+- **Acción al tocar el card**: deep link al URI `spotify:…` con
+  `url_launcher` (cayendo a la URL `https://` si no hay app instalada).
+  **Sin preview de 30s** en esta versión — queda como follow-up
+  si se quiere (requeriría OAuth + Web API + audio SDK).
+- **Modelos / DB**:
+  - Nueva colección Isar `SpotifyLinkEntity` con `noteId` (index),
+    `spotifyUri`, `spotifyUrl`, `type` (enum track/playlist/album),
+    `title`, `subtitle`, `thumbnailUrl?`, `addedAt`.
+  - `IsarService.open()` ahora incluye `SpotifyLinkEntitySchema`.
+- **Repos / providers**:
+  - `SpotifyRepository` con `watchByNote` (Stream), `addFromInput`
+    (parse + oEmbed + put en una sola transacción),
+    `remove / removeAllForNote`.
+  - `spotifyRepositoryProvider` en `core/storage/repositories.dart`.
+  - `spotifyLinksByNoteProvider` y `spotifyLinkCountByNoteProvider`
+    (StreamProvider.family).
+- **UI**:
+  - **Editor screen** AppBar: nuevo `PopupMenuButton` con icono
+    `music_note` que se pinta verde cuando la nota tiene ≥1 enlace.
+    Opciones: "Vincular canción o playlist" y "Quitar todos (N)".
+  - **Editor screen** body: nueva `_SpotifyLinksSection` arriba
+    del campo de título. Si no hay links muestra una "tarjeta CTA"
+    verde con borde que al tap abre el dialog. Si hay links, los
+    lista como `SpotifyLinkCard` + un botón "Añadir otro".
+  - **NoteCard**: icono `music_note` verde junto al título cuando
+    la nota tiene ≥1 enlace y no está bloqueada.
+  - **`SpotifyLinkCard`**: card verde con borde, icono del tipo
+    (track/playlist/album), label "Canción"/"Playlist"/"Álbum",
+    título + subtítulo, botón X para quitar.
+  - **`AddSpotifyLinkDialog`**: `AlertDialog` con icono Spotify
+    verde, text field con URL, botón "Vincular" que muestra
+    spinner mientras hace el oEmbed.
+- **Cascada de borrado**:
+  - `permanentDelete` (nota): ahora borra todos los Spotify links
+    de esa nota desde el editor y desde la papelera (Dismissible
+    y options sheet).
+  - `emptyTrash`: ahora retorna los IDs eliminados para que la UI
+    borre los links correspondientes.
+  - `purgeExpiredTrash` en `main.dart`: ahora retorna los IDs y se
+    hace cleanup de los links huérfanos al arrancar.
+- **Android**:
+  - `AndroidManifest.xml`: `<queries>` adicionales para `spotify:`
+    y `https:` (requerido por Android 11+ para `canLaunchUrl`).
+  - `url_launcher: ^6.3.3` como dependencia nueva.
+- **Tests**: 9 casos nuevos para `parseInput` (https track/playlist/
+  album, URI spotify:, URL con query params, empty, inválida, artist
+  no soportado, trim whitespace). Total: **25 tests pasan**,
+  `flutter analyze` sin issues, APK debug compila.
 
 ### Sesión 2026-10-15 — Fase 4: export individual + PDF + guardar en Descargas
 - **Markdown / Texto plano** vía share sheet (suscinto original)
@@ -587,9 +644,10 @@ No indican fallo y no se pueden silenciar desde la app; se filtran con `adb logc
 
 1. **Fase 4 (continuación)**: export carpeta completa a ZIP con PDF
    de cada nota + imágenes embebidas
-2. **Fase 4**: Spotify (OAuth PKCE + Web API) — confirmar con el usuario
-   si tiene `client_id` propio o usamos placeholder, y si solo tracks o
-   también playlists/albums
+2. **Extras / Follow-ups de Spotify** (cuando se quiera):
+   - Preview de 30s para tracks (OAuth PKCE + Web API + audio SDK)
+   - Búsqueda dentro de la app (reemplaza el "paste URL")
+   - Mostrar cover thumbnail en el card (descargar y cachear)
 
 ## Convenciones
 

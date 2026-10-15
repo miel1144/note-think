@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/db/models/note.dart';
 import '../../features/private_notes/private_notes_controller.dart';
+import '../../features/spotify/spotify_providers.dart';
 import 'neu_surface.dart';
 
 class NoteCard extends ConsumerWidget {
@@ -25,6 +26,10 @@ class NoteCard extends ConsumerWidget {
     final theme = Theme.of(context);
     final privateState = ref.watch(privateNotesProvider);
     final locked = note.isPrivate && !privateState.isUnlocked;
+    final spotifyCount = ref
+        .watch(spotifyLinkCountByNoteProvider(note.id))
+        .value;
+    final hasSpotify = (spotifyCount ?? 0) > 0 && !locked;
 
     final title = locked ? 'Nota privada' : (note.title.isEmpty ? 'Sin título' : note.title);
     final preview = locked ? '•••••• contenido protegido' : _previewLine(note);
@@ -78,6 +83,15 @@ class NoteCard extends ConsumerWidget {
                         color: theme.colorScheme.onSurface.withValues(
                           alpha: 0.55,
                         ),
+                      ),
+                    ),
+                  if (hasSpotify)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: Icon(
+                        Icons.music_note,
+                        size: compact ? 12 : 14,
+                        color: const Color(0xFF1DB954),
                       ),
                     ),
                   Expanded(

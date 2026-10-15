@@ -15,7 +15,13 @@ Future<void> main() async {
   final container = ProviderContainer(
     overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
   );
-  await container.read(notesRepositoryProvider).purgeExpiredTrash();
+  final purgedIds = await container
+      .read(notesRepositoryProvider)
+      .purgeExpiredTrash();
+  final spotify = container.read(spotifyRepositoryProvider);
+  for (final id in purgedIds) {
+    await spotify.removeAllForNote(id);
+  }
   await RemindersService.instance.init();
   final activeReminders =
       await container.read(notesRepositoryProvider).getActiveWithReminders();

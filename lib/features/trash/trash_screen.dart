@@ -34,7 +34,14 @@ class TrashScreen extends ConsumerWidget {
                         destructive: true,
                       );
                       if (ok) {
-                        await ref.read(notesRepositoryProvider).emptyTrash();
+                        final ids = await ref
+                            .read(notesRepositoryProvider)
+                            .emptyTrash();
+                        for (final id in ids) {
+                          await ref
+                              .read(spotifyRepositoryProvider)
+                              .removeAllForNote(id);
+                        }
                       }
                     },
                     child: const Text('Vaciar'),
@@ -95,6 +102,9 @@ class TrashScreen extends ConsumerWidget {
                   );
                 },
                 onDismissed: (_) async {
+                  await ref
+                      .read(spotifyRepositoryProvider)
+                      .removeAllForNote(n.id);
                   await ref
                       .read(notesRepositoryProvider)
                       .permanentDelete(n.id);
@@ -171,6 +181,9 @@ class TrashScreen extends ConsumerWidget {
                     destructive: true,
                   );
                   if (ok) {
+                    await ref
+                        .read(spotifyRepositoryProvider)
+                        .removeAllForNote(n.id);
                     await ref
                         .read(notesRepositoryProvider)
                         .permanentDelete(n.id);

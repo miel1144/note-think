@@ -193,15 +193,18 @@ class NotesRepository {
     });
   }
 
-  Future<void> emptyTrash() async {
-    await _isar.writeTxn(() async {
-      await _col.filter().deletedAtIsNotNull().deleteAll();
+  Future<List<int>> emptyTrash() async {
+    return _isar.writeTxn(() async {
+      final all = await _col.filter().deletedAtIsNotNull().findAll();
+      final ids = all.map((n) => n.id).toList();
+      await _col.deleteAll(ids);
+      return ids;
     });
   }
 
   static const Duration trashRetention = Duration(days: 30);
 
-  Future<int> purgeExpiredTrash({DateTime? now}) async {
+  Future<List<int>> purgeExpiredTrash({DateTime? now}) async {
     final cutoff = (now ?? DateTime.now()).subtract(trashRetention);
     return _isar.writeTxn(() async {
       final expired = await _col
@@ -209,10 +212,10 @@ class NotesRepository {
           .deletedAtIsNotNull()
           .deletedAtLessThan(cutoff)
           .findAll();
-      if (expired.isEmpty) return 0;
+      if (expired.isEmpty) return const [];
       final ids = expired.map((n) => n.id).toList();
       await _col.deleteAll(ids);
-      return ids.length;
+      return ids;
     });
   }
 

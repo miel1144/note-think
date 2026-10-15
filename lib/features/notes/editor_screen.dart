@@ -17,6 +17,9 @@ import '../private_notes/password_dialog.dart';
 import '../private_notes/private_notes_controller.dart';
 import '../reminders/reminder_picker.dart';
 import '../reminders/reminders_service.dart';
+import '../spotify/add_spotify_link_dialog.dart';
+import '../spotify/spotify_link_card.dart';
+import '../spotify/spotify_providers.dart';
 
 enum SaveStatus { pristine, dirty, saving, saved, error }
 
@@ -202,6 +205,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     if (!ok) return;
     _discard = true;
     if (isPrivate) {
+      await ref.read(spotifyRepositoryProvider).removeAllForNote(id);
       await _repo.permanentDelete(id);
     } else {
       await _repo.softDelete(id);
@@ -264,6 +268,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         ),
         title: const Text('Editar'),
         actions: [
+          if (widget.noteId != null) const _SpotifyMenu(),
           if (widget.noteId != null) const _ReminderMenu(),
           _SaveIndicator(
             status: _status,
@@ -282,6 +287,8 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
           : SafeArea(
               child: Column(
                 children: [
+                  if (widget.noteId != null)
+                    _SpotifyLinksSection(noteId: widget.noteId!),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 4, 20, 4),
                     child: TextField(
@@ -540,3 +547,155 @@ final _currentNoteProvider = FutureProvider.family<NoteEntity?, int>((
 ) async {
   return ref.watch(notesRepositoryProvider).getById(id);
 });
+
+class _SpotifyMenu extends ConsumerWidget {
+  const _SpotifyMenu();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final noteId = ref.watch(currentEditorNoteIdProvider);
+    if (noteId == null) return const SizedBox.shrink();
+    final count = ref.watch(spotifyLinkCountByNoteProvider(noteId)).value ?? 0;
+    return PopupMenuButton<String>(
+      tooltip: 'Spotify',
+      icon: Icon(
+        Icons.music_note,
+        color: count > 0 ? const Color(0xFF1DB954) : null,
+      ),
+      color: Theme.of(context).colorScheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      onSelected: (value) async {
+        if (value == 'add') {
+          await AddSpotifyLinkDialog.show(context, noteId);
+        } else if (value == 'remove_all' && count > 0) {
+          final ok = await showConfirmDialog(
+            context,
+            icon: Icons.music_off_outlined,
+            title: '¿Quitar todos los enlaces de Spotify?',
+            message: 'Se eliminarán los $count enlaces asociados a esta nota.',
+            confirmLabel: 'Quitar todos',
+            destructive: true,
+          );
+          if (ok) {
+            await ref.read(spotifyRepositoryProvider).removeAllForNote(noteId);
+          }
+        }
+      },
+      itemBuilder: (_) => [
+        const PopupMenuItem(
+          value: 'add',
+          child: Row(
+            children: [
+              Icon(Icons.add_link, size: 18),
+              SizedBox(width: 10),
+              Text('Vincular canción o playlist'),
+            ],
+          ),
+        ),
+        if (count > 0)
+          PopupMenuItem(
+            value: 'remove_all',
+            child: Row(
+              children: [
+                const Icon(Icons.music_off_outlined, size: 18),
+                const SizedBox(width: 10),
+                Text('Quitar todos ($count)'),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _SpotifyLinksSection extends ConsumerWidget {
+  const _SpotifyLinksSection({required this.noteId});
+  final int noteId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final linksAsync = ref.watch(spotifyLinksByNoteProvider(noteId));
+    final links = linksAsync.value ?? const [];
+    if (links.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+        child: InkWell(
+          onTap: () => AddSpotifyLinkDialog.show(context, noteId),
+          borderRadius: BorderRadius.circular(14),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              border: Border.all(
+                color: const Color(0xFF1DB954).withValues(alpha: 0.35),
+                style: BorderStyle.solid,
+              ),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.music_note,
+                    size: 18, color: Color(0xFF1DB954)),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Vincular canción o playlist de Spotify',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: const Color(0xFF1DB954),
+                          fontWeight: FontWeight.w500,
+                        ),
+                  ),
+                ),
+                const Icon(Icons.add, size: 18, color: Color(0xFF1DB954)),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final link in links) ...[
+            SpotifyLinkCard(
+              link: link,
+              onRemove: () =>
+                  ref.read(spotifyRepositoryProvider).remove(link.id),
+            ),
+            const SizedBox(height: 6),
+          ],
+          InkWell(
+            onTap: () => AddSpotifyLinkDialog.show(context, noteId),
+            borderRadius: BorderRadius.circular(14),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: const Color(0xFF1DB954).withValues(alpha: 0.35),
+                ),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.add,
+                      size: 16, color: Color(0xFF1DB954)),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Añadir otro',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: const Color(0xFF1DB954),
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

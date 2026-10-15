@@ -3,6 +3,7 @@ import 'package:path_provider/path_provider.dart';
 
 import 'models/category.dart';
 import 'models/note.dart';
+import 'models/spotify_link.dart';
 
 class IsarService {
   IsarService._();
@@ -22,7 +23,7 @@ class IsarService {
     if (_isar != null) return _isar!;
     final dir = await getApplicationDocumentsDirectory();
     _isar = await Isar.open(
-      [NoteEntitySchema, CategoryEntitySchema],
+      [NoteEntitySchema, CategoryEntitySchema, SpotifyLinkEntitySchema],
       directory: dir.path,
       name: 'notethink',
       inspector: false,
