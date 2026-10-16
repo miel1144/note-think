@@ -328,6 +328,21 @@ Hecho y compilando (APK debug):
 - La preferencia **persiste** entre arranques de la app (a diferencia de los filtros,
   que son de sesión).
 
+### Fase 2 — Swipe a papelera en vista de lista (2026-10-16)
+- `_NotesList` envuelve cada `NoteCard` en un `Dismissible` con
+  `direction: DismissDirection.endToStart` (solo derecha → izquierda).
+  El grid queda intacto.
+- `secondaryBackground`: fondo rojo tenue (`colorScheme.error` @ 0.15)
+  con `Icon.delete_outline` + label "Mover a papelera" alineados a la
+  derecha, mismo estilo que el swipe de la papelera.
+- `confirmDismiss`: reusa `showConfirmDialog` con el mismo copy del
+  options sheet ("¿Mover a papelera? Podrás restaurarla durante 30
+  días…", botón "Mover"). Si cancela → la card vuelve a su sitio.
+- `onDismissed`: `softDelete` + `RemindersService.cancel` si la nota
+  tenía recordatorio (idéntico al path del options sheet). Spotify
+  links se conservan porque la nota es recuperable.
+- El long-press → options sheet sigue existiendo; el swipe es un atajo.
+
 ### Fase 3 — Recordatorios locales (2026-10-14) — **MOVIDO A EXTRAS 2026-10-15**
 - Dependencias añadidas:
   - `flutter_local_notifications: ^22.3.2`
