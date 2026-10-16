@@ -538,6 +538,7 @@ class _NotesList extends StatelessWidget {
         return Dismissible(
           key: ValueKey('note-${n.id}'),
           direction: DismissDirection.endToStart,
+          background: const SizedBox.shrink(),
           secondaryBackground: Container(
             alignment: Alignment.centerRight,
             padding: const EdgeInsets.symmetric(horizontal: 24),

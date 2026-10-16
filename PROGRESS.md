@@ -45,6 +45,42 @@ Aplicados como **gradiente radial en la esquina superior derecha** del card de l
 - Monocromático, integra bien con la paleta terrenal
 - Sensación táctil tipo papel — coherente con la metáfora de notas
 
+### Estilo: glassmorfismo — decisión pendiente (2026-10-16)
+El usuario reportó que el neumorfismo actual se ve "tan plano" y pidió
+evaluar pasar a glassmorfismo. Se levantaron tres caminos:
+
+**A — No cambiar / más profundidad dentro del neumorfismo** (barato).
+Subir `intensity` default de `NeuSurface` (1.0 → 1.3-1.5), pintar el
+fondo con un gradient radial sutil, explotar más los heat points
+(4 colores de nota). Mantiene la identidad "papel".
+
+**B — Híbrido** (recomendado si se quiere refresh visual). Mantener
+`NeuSurface` para cards/tiles (papel) + sumar `GlassSurface` con
+`BackdropFilter` solo en overlays flotantes (AppBar, sheets, dialogs,
+FAB chrome). Esfuerzo bajo, performance OK (2-3 surfaces blurred por
+pantalla), jerarquía clara.
+
+**C — Switch completo**. Reescribir `NeuSurface` → `GlassSurface` en
+todos los sitios (~15 usos), sumar fondo gradient/blob, aceptar el
+costo de performance o cachear con `ImageFiltered` + `RepaintBoundary`.
+**Requiere test en device real antes de comprometer**. Solo si se
+quiere un reset de identidad.
+
+Tradeoffs generales a tener en cuenta:
+- `BackdropFilter` es GPU-pesado en listas largas (Flutter docs lo
+  desaconsejan sin cache). Notas con 20+ cards es el caso peor.
+- Glass se ve mejor con fondo colorido. El fondo actual sólido
+  (`#fefae0` / `#1a1f10`) hace que sin decoration se vea lechoso.
+- La paleta terracota cálido es atípica para glass (lo común es
+  azul/morado/cyan). Existe glass cálido pero compite con el blur
+  nativo del OS y puede verse "iOS stock".
+- Glass mata la metáfora "papel" — pasa a "panel de control".
+- Texto sobre translúcido depende del contenido detrás; WCAG AA
+  cuesta mantenerlo consistente.
+
+**Estado**: pendiente de decisión del usuario. No se hizo ningún
+cambio en código todavía.
+
 ## Funcionalidades
 
 ### Fase 1 — Base (MVP)
