@@ -93,6 +93,12 @@ class NotesListScreen extends ConsumerWidget {
                   notes: notes,
                   onTap: (n) => context.push('/edit/${n.id}'),
                   onLongPress: (n) => _showActions(context, ref, n),
+                  onSwipeDelete: (n) async {
+                    await ref.read(notesRepositoryProvider).softDelete(n.id);
+                    if (n.reminderAt != null) {
+                      await RemindersService.instance.cancel(n.id);
+                    }
+                  },
                 );
               },
             ),
@@ -512,23 +518,67 @@ class _NotesList extends StatelessWidget {
     required this.notes,
     required this.onTap,
     required this.onLongPress,
+    required this.onSwipeDelete,
   });
 
   final List<NoteEntity> notes;
   final void Function(NoteEntity) onTap;
   final void Function(NoteEntity) onLongPress;
+  final Future<void> Function(NoteEntity) onSwipeDelete;
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
       itemCount: notes.length,
       separatorBuilder: (_, _) => const SizedBox(height: 12),
-      itemBuilder: (_, i) => NoteCard(
-        note: notes[i],
-        onTap: () => onTap(notes[i]),
-        onLongPress: () => onLongPress(notes[i]),
-      ),
+      itemBuilder: (_, i) {
+        final n = notes[i];
+        return Dismissible(
+          key: ValueKey('note-${n.id}'),
+          direction: DismissDirection.endToStart,
+          secondaryBackground: Container(
+            alignment: Alignment.centerRight,
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            margin: EdgeInsets.zero,
+            decoration: BoxDecoration(
+              color: scheme.error.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(22),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.delete_outline, color: scheme.error),
+                const SizedBox(width: 8),
+                Text(
+                  'Mover a papelera',
+                  style: TextStyle(
+                    color: scheme.error,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          confirmDismiss: (_) async {
+            return showConfirmDialog(
+              context,
+              icon: Icons.delete_outline,
+              title: '¿Mover a papelera?',
+              message:
+                  'Podrás restaurarla desde la papelera durante 30 días. Pasado ese tiempo se eliminará definitivamente.',
+              confirmLabel: 'Mover',
+            );
+          },
+          onDismissed: (_) => onSwipeDelete(n),
+          child: NoteCard(
+            note: n,
+            onTap: () => onTap(n),
+            onLongPress: () => onLongPress(n),
+          ),
+        );
+      },
     );
   }
 }
