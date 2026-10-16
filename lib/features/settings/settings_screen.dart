@@ -47,13 +47,6 @@ class SettingsScreen extends ConsumerWidget {
           const SizedBox(height: 24),
           const _SectionLabel('Notas privadas'),
           _PrivateNotesTile(state: privateState),
-          const SizedBox(height: 24),
-          const _SectionLabel('Próximamente'),
-          const _SettingTile(
-            title: 'Exportar a PDF',
-            subtitle: 'Disponible en una próxima fase',
-            leading: Icons.picture_as_pdf_outlined,
-          ),
         ],
       ),
     );
