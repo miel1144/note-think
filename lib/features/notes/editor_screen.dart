@@ -18,7 +18,7 @@ import '../private_notes/private_notes_controller.dart';
 import '../reminders/reminder_picker.dart';
 import '../reminders/reminders_service.dart';
 import '../spotify/add_spotify_link_dialog.dart';
-import '../spotify/spotify_link_card.dart';
+import '../spotify/spotify_link_carousel.dart';
 import '../spotify/spotify_providers.dart';
 
 enum SaveStatus { pristine, dirty, saving, saved, error }
@@ -654,48 +654,11 @@ class _SpotifyLinksSection extends ConsumerWidget {
         ),
       );
     }
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          for (final link in links) ...[
-            SpotifyLinkCard(
-              link: link,
-              onRemove: () =>
-                  ref.read(spotifyRepositoryProvider).remove(link.id),
-            ),
-            const SizedBox(height: 6),
-          ],
-          InkWell(
-            onTap: () => AddSpotifyLinkDialog.show(context, noteId),
-            borderRadius: BorderRadius.circular(14),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                border: Border.all(
-                  color: const Color(0xFF1DB954).withValues(alpha: 0.35),
-                ),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.add,
-                      size: 16, color: Color(0xFF1DB954)),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Añadir otro',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: const Color(0xFF1DB954),
-                          fontWeight: FontWeight.w600,
-                        ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
+    return SpotifyLinkCarousel(
+      links: links,
+      onAdd: () => AddSpotifyLinkDialog.show(context, noteId),
+      onRemove: (link) =>
+          ref.read(spotifyRepositoryProvider).remove(link.id),
     );
   }
 }

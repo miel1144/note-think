@@ -9,18 +9,6 @@ class SpotifyOembedService {
 
   static const _oembedBase = 'https://open.spotify.com/oembed';
 
-  static SpotifyLinkType? _typeFromString(String? raw) {
-    switch (raw) {
-      case 'track':
-        return SpotifyLinkType.track;
-      case 'playlist':
-        return SpotifyLinkType.playlist;
-      case 'album':
-        return SpotifyLinkType.album;
-    }
-    return null;
-  }
-
   static SpotifyLinkType? _typeFromPath(String pathSegment) {
     switch (pathSegment) {
       case 'track':
@@ -88,12 +76,6 @@ class SpotifyOembedService {
     } catch (_) {
       throw const SpotifyOembedException(
         'Respuesta inválida de Spotify',
-      );
-    }
-    final remoteType = _typeFromString(body['type'] as String?);
-    if (remoteType != type) {
-      throw SpotifyOembedException(
-        'El tipo no coincide: esperado $type, recibido $remoteType',
       );
     }
     final title = (body['title'] as String?)?.trim();

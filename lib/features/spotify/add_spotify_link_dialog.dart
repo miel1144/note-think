@@ -65,7 +65,7 @@ class _AddSpotifyLinkDialogState extends ConsumerState<AddSpotifyLinkDialog> {
     final t = Theme.of(context);
     return AlertDialog(
       icon: const Icon(Icons.music_note, color: Color(0xFF1DB954)),
-      title: const Text('Vincular canción o playlist'),
+      title: const Text('Vincular'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
