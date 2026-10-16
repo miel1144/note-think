@@ -182,12 +182,14 @@ Aplicados como **gradiente radial en la esquina superior derecha** del card de l
   issues, APK debug compila.
 
 ### Extras (ideas diferidas, no en roadmap activo)
-- **Recordatorios locales** (movido desde Fase 3 el 2026-10-15). El
-  código está, los permisos también, pero el `AndroidManifest.xml`
-  no declara los `<receiver>` del plugin `flutter_local_notifications`
-  (`ScheduledNotificationReceiver` + `ScheduledNotificationBootReceiver`),
-  por lo que la alarma del AlarmManager nunca se atiende. Fix mínimo
-  documentado arriba en "Fase 3 — Recordatorios locales".
+- ~~Recordatorios locales~~ (movido desde Fase 3 el 2026-10-15).
+  **Fix de manifest aplicado 2026-10-16**: ahora el `AndroidManifest.xml`
+  declara los dos `<receiver>` del plugin (`ScheduledNotificationReceiver`
+  + `ScheduledNotificationBootReceiver`), por lo que la alarma del
+  AlarmManager se atiende y los recordatorios se disparan. Queda
+  pendiente re-evaluar el `androidScheduleMode` (probablemente
+  `exactAllowWhileIdle` + pedir `SCHEDULE_EXACT_ALARM` desde
+  Ajustes del sistema si la imprecisión Doze resulta molesta).
 - Widget Android (atajo en home screen)
 - Backlinks entre notas
 - Dibujo libre / sketches
@@ -414,9 +416,11 @@ Causas secundarias que también juegan en contra:
   en release el error se silencia.
 
 El código se queda intacto, solo cambia la clasificación. Cuando se
-quiera retomar, el fix mínimo es agregar los dos `<receiver>` al
-manifest y re-evaluar el schedule mode (probablemente `exactAllowWhileIdle`
-+ pedir `SCHEDULE_EXACT_ALARM` desde Ajustes del sistema).
+quiera retomar, queda pendiente re-evaluar el `androidScheduleMode`
+(probablemente `exactAllowWhileIdle` + pedir `SCHEDULE_EXACT_ALARM`
+desde Ajustes del sistema) y el fallback de timezone. El fix de
+manifest (los dos `<receiver>`) se aplicó el 2026-10-16 y debería
+haber destrabado la entrega de la alarma.
 
 ### Fase 3 — Notas privadas sin tab en el nav (2026-10-14)
 - **Tab de Privadas eliminado del bottom nav**. Vuelve a 3 tabs
@@ -647,7 +651,6 @@ No indican fallo y no se pueden silenciar desde la app; se filtran con `adb logc
 2. **Extras / Follow-ups de Spotify** (cuando se quiera):
    - Preview de 30s para tracks (OAuth PKCE + Web API + audio SDK)
    - Búsqueda dentro de la app (reemplaza el "paste URL")
-   - Mostrar cover thumbnail en el card (descargar y cachear)
 
 ## Convenciones
 
