@@ -45,7 +45,7 @@ Aplicados como **gradiente radial en la esquina superior derecha** del card de l
 - Monocromático, integra bien con la paleta terrenal
 - Sensación táctil tipo papel — coherente con la metáfora de notas
 
-### Estilo: glassmorfismo — decisión pendiente (2026-10-16)
+### Estilo: glassmorfismo — decisión pospuesta (2026-10-19)
 El usuario reportó que el neumorfismo actual se ve "tan plano" y pidió
 evaluar pasar a glassmorfismo. Se levantaron tres caminos:
 
@@ -78,8 +78,11 @@ Tradeoffs generales a tener en cuenta:
 - Texto sobre translúcido depende del contenido detrás; WCAG AA
   cuesta mantenerlo consistente.
 
-**Estado**: pendiente de decisión del usuario. No se hizo ningún
-cambio en código todavía.
+**Estado** (re-evaluado 2026-10-19): **decisión pospuesta**. No se ha
+hecho ningún cambio en código. Cuando se reabra, empezar por la opción
+**B (híbrido)**: mantener `NeuSurface` en cards/tiles (papel) + sumar
+`GlassSurface` solo en overlays flotantes. Las opciones A y C siguen
+siendo viables pero quedan como respaldo.
 
 ## Funcionalidades
 
@@ -100,7 +103,7 @@ cambio en código todavía.
 - Auto-guardado (sin botón "guardar")
 - Ordenamiento flexible (modificación, creación, título, color)
 
-### Fase 3 — Power user — **CERRADA 2026-10-14** (recordatorios movidos a Extras 2026-10-15)
+### Fase 3 — Power user — **CERRADA 2026-10-16** (recordatorios cerrados el 2026-10-16, mejora menor en Próximos pasos)
 - ✓ Compartir nota vía share sheet de Android
 - ✓ Notas privadas (palabra clave + sesión de 5 min, lock on background,
   aislamiento total del flujo principal)
@@ -109,7 +112,7 @@ cambio en código todavía.
 - Widget Android (atajo en home screen)
 - Ordenamiento flexible (modificación, creación, título, color)
 
-### Fase 4 — Export + Spotify
+### Fase 4 — Export + Spotify — **CERRADA 2026-10-19**
 - ✓ Exportar nota individual a `.txt` (texto plano) o `.md` (markdown)
   vía share sheet de Android
 - ✓ Exportar nota individual a **PDF con imágenes embebidas** vía
@@ -343,26 +346,21 @@ cambio en código todavía.
   issues, APK debug compila.
 
 ### Extras (ideas diferidas, no en roadmap activo)
-- ~~Recordatorios locales~~ (movido desde Fase 3 el 2026-10-15).
-  **Fix de manifest aplicado 2026-10-16**: ahora el `AndroidManifest.xml`
-  declara los dos `<receiver>` del plugin (`ScheduledNotificationReceiver`
-  + `ScheduledNotificationBootReceiver`), por lo que la alarma del
-  AlarmManager se atiende y los recordatorios se disparan. Queda
-  pendiente re-evaluar el `androidScheduleMode` (probablemente
-  `exactAllowWhileIdle` + pedir `SCHEDULE_EXACT_ALARM` desde
-  Ajustes del sistema si la imprecisión Doze resulta molesta).
+- **Recordatorios locales** — núcleo cerrado el 2026-10-16 con el fix de
+  manifest (declarados los dos `<receiver>` de `flutter_local_notifications`
+  en `AndroidManifest.xml`). Queda como mejora opcional re-evaluar el
+  `androidScheduleMode` (probable `exactAllowWhileIdle` + pedir
+  `SCHEDULE_EXACT_ALARM` desde Ajustes del sistema) si la imprecisión
+  de Doze resulta molesta — listado en Próximos pasos.
 - Widget Android (atajo en home screen)
-- Backlinks entre notas
-- Dibujo libre / sketches
-- IA / resúmenes
-- Biometría local (huella / cara) — sustituido por la palabra clave
-  de notas privadas
 
 ### Descartado a propósito (mantener simple)
 - Colaboración en tiempo real
 - IA / resúmenes
 - Backlinks entre notas
 - Dibujo libre / sketches
+- Biometría local (huella / cara) — sustituido por la palabra clave
+  de notas privadas (Fase 3)
 
 ## Estructura de carpetas objetivo
 
@@ -504,99 +502,28 @@ Hecho y compilando (APK debug):
   links se conservan porque la nota es recuperable.
 - El long-press → options sheet sigue existiendo; el swipe es un atajo.
 
-### Fase 3 — Recordatorios locales (2026-10-14) — **MOVIDO A EXTRAS 2026-10-15**
-- Dependencias añadidas:
-  - `flutter_local_notifications: ^22.3.2`
-  - `timezone: ^0.11.2`
-  - `flutter_timezone: ^5.1.1`
-- Android (manifest):
-  - `POST_NOTIFICATIONS`, `SCHEDULE_EXACT_ALARM`, `USE_EXACT_ALARM`,
-    `RECEIVE_BOOT_COMPLETED`, `WAKE_LOCK`, `VIBRATE`
-  - `coreLibraryDesugaring = true` + `desugar_jdk_libs:2.1.4` en
-    `app/build.gradle.kts` (requerido por `flutter_local_notifications` 18+)
-- `NoteEntity.reminderAt: DateTime?` añadido (con índice). Migración
-  automática — null por defecto en notas existentes.
-- `NotesRepository`:
-  - `setReminder(id, DateTime?)`
-  - `getActiveWithReminders()` para re-agendar al arrancar la app
-- Nuevo `lib/features/reminders/`:
-  - `reminders_service.dart`: `RemindersService.instance` (singleton).
-    - `init()`: configura timezone (vía `FlutterTimezone.getLocalTimezone`
-      → `tz.getLocation(info.identifier)`), inicializa el plugin con
-      `AndroidInitializationSettings('@mipmap/ic_launcher')` y crea el
-      canal `note_reminders` con importancia HIGH.
-    - `requestPermission()`: para Android 13+ (POST_NOTIFICATIONS).
-    - `schedule({noteId, when, title, body, isPrivate})`:
-      `zonedSchedule` con `androidScheduleMode: inexactAllowWhileIdle`
-      (no requiere el permiso "alarmas y recordatorios" del sistema,
-      puede llegar con algunos minutos de retraso). El payload lleva
-      el `noteId` para deep-link al tap. Si la nota es privada, el
-      título de la notificación es genérico ("Tienes un
-      recordatorio") y el body es "Toca para abrir la nota" — no
-      leak del contenido.
-    - `cancel(noteId)`, `cancelAll()`.
-    - `tappedNoteId: ValueNotifier<int?>` que se setea en
-      `onDidReceiveNotificationResponse` cuando el usuario toca la
-      notificación.
-  - `reminder_picker.dart`: `showReminderPicker(context)` — date +
-    time picker (24h). Valida que la fecha sea en el futuro.
-    `formatReminder(when)` devuelve "Hoy 18:30", "Mañana 09:00", o
-    "25/10/2026 18:30".
-- `main.dart`: después de abrir Isar, llama a `RemindersService.init()`
-  y re-agenda los recordatorios activos (sobreviven reinicios).
-- `app.dart` (ahora `ConsumerStatefulWidget`): escucha
-  `RemindersService.tappedNoteId` y navega a `/edit/$id` cuando se
-  setea. También maneja el caso "app launched from notification"
-  vía `getNotificationAppLaunchDetails`.
-- Opciones de UI:
-  - `NotesListScreen`, `FolderDetailScreen`, `PrivateNotesScreen`
-    options sheets: "Programar recordatorio" / "Cambiar" (con
-    `formatReminder` como subtitle) / "Quitar". Permiso se pide al
-    programar.
-  - `EditorScreen` AppBar: nuevo `PopupMenuButton` con icono
-    `notifications_outlined` / `notifications_active_outlined`
-    según el estado, mismo flujo.
-- `NoteCard`: bell icon (`notifications_active_outlined`) junto al
-  título cuando `reminderAt != null` y la nota no está locked.
-- Cancelación de recordatorio en todos los paths de borrado:
-  `softDelete` (lista, folder, editor), `permanentDelete` (trash
-  sheet, trash swipe, trash empty indirecto via reschedule, editor
-  para privadas, private notes screen).
-- Si la nota se marca como privada y tenía recordatorio, se cancela
-  (evita leak del título en la notif). Al desmarcar, el usuario
-  tiene que reprogramar manualmente.
-
-**Por qué se movió a Extras (2026-10-15):** los recordatorios no se
-disparan en el dispositivo. Causa raíz: el `AndroidManifest.xml`
-declara los `<uses-permission>` (incluido `RECEIVE_BOOT_COMPLETED`)
-pero **NO declara los `<receiver>` del plugin** que son los que
-reciben la alarma del AlarmManager y muestran la notificación:
-- `com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver`
-- `com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver`
-  con intent-filter de `BOOT_COMPLETED` / `MY_PACKAGE_REPLACED`.
-
-El permiso sin el receiver no sirve de nada. Verificado contra el
-`AndroidManifest.xml` del ejemplo oficial del plugin
-(`flutter_local_notifications-22.3.2/example/android/app/src/main/AndroidManifest.xml`)
-— esos dos receivers están en el ejemplo y faltan en note-think.
-
-Causas secundarias que también juegan en contra:
-- `androidScheduleMode: inexactAllowWhileIdle` es battery-optimization
-  sensible (Doze retrasa inexactas 15-60+ min). Decisión previa de no
-  pedir `SCHEDULE_EXACT_ALARM` documentada en PROGRESS, pero el
-  problema del manifest es previo.
-- `tz.setLocalLocation(tz.UTC)` como fallback en `init()` si
-  `FlutterTimezone.getLocalTimezone()` falla — puede calcular el
-  horario con offset incorrecto.
-- `schedule()` traga el `catch (e)` con `debugPrint` solo en debug;
-  en release el error se silencia.
-
-El código se queda intacto, solo cambia la clasificación. Cuando se
-quiera retomar, queda pendiente re-evaluar el `androidScheduleMode`
-(probablemente `exactAllowWhileIdle` + pedir `SCHEDULE_EXACT_ALARM`
-desde Ajustes del sistema) y el fallback de timezone. El fix de
-manifest (los dos `<receiver>`) se aplicó el 2026-10-16 y debería
-haber destrabado la entrega de la alarma.
+### Fase 3 — Recordatorios locales (2026-10-14) — **CERRADO 2026-10-16**
+- **Implementación**: `flutter_local_notifications` + `timezone` +
+  `flutter_timezone`. `NoteEntity.reminderAt` (con índice),
+  `RemindersService.instance` (init / requestPermission / schedule /
+  cancel), `showReminderPicker` + `formatReminder`, re-agendado al
+  arrancar la app en `main.dart`, tap deep-linkea a `/edit/$id`.
+  Acciones en options sheets de lista/folder/private y AppBar del
+  editor. Cancelación en cascada en todos los paths de borrado. Las
+  notas privadas ocultan título/cuerpo en la notificación para no
+  leakear contenido.
+- **Bug que lo movió a Extras (2026-10-15)**: las notificaciones no se
+  disparaban en device. Causa raíz: faltaban los dos `<receiver>` del
+  plugin en `AndroidManifest.xml`
+  (`ScheduledNotificationReceiver` + `ScheduledNotificationBootReceiver`).
+  Verificado contra el manifest del ejemplo oficial del plugin.
+- **Fix que lo cerró (2026-10-16)**: declarados ambos `<receiver>` en el
+  manifest → la alarma del AlarmManager llega y se muestra la notif.
+- **Pendiente menor** (ahora en Próximos pasos): re-evaluar
+  `androidScheduleMode` (`inexactAllowWhileIdle` actual puede retrasarse
+  15-60+ min por Doze); candidato `exactAllowWhileIdle` + pedir
+  `SCHEDULE_EXACT_ALARM`. Idem robustecer el fallback
+  `tz.setLocalLocation(tz.UTC)` y el `catch` silencioso de `schedule()`.
 
 ### Fase 3 — Notas privadas sin tab en el nav (2026-10-14)
 - **Tab de Privadas eliminado del bottom nav**. Vuelve a 3 tabs
@@ -822,9 +749,17 @@ No indican fallo y no se pueden silenciar desde la app; se filtran con `adb logc
 
 ## Próximos pasos
 
-1. **Extras / Follow-ups de Spotify** (cuando se quiera):
+1. **Precisión de recordatorios** (mejora menor sobre Fase 3 cerrada):
+   re-evaluar `androidScheduleMode` (probable `exactAllowWhileIdle` +
+   pedir `SCHEDULE_EXACT_ALARM` desde Ajustes del sistema) si la
+   imprecisión Doze resulta molesta. Idem robustecer el fallback
+   `tz.setLocalLocation(tz.UTC)` y el `catch` silencioso de `schedule()`.
+2. **Glassmorfismo** — cuando se quiera abordar, abrir por la opción B
+   (híbrido: mantener `NeuSurface` en cards + `GlassSurface` en overlays).
+3. **Extras / Follow-ups de Spotify** (cuando se quiera):
    - Preview de 30s para tracks (OAuth PKCE + Web API + audio SDK)
    - Búsqueda dentro de la app (reemplaza el "paste URL")
+4. **Widget Android** (atajo en home screen) — único ítem vivo en Extras.
 
 ## Convenciones
 
