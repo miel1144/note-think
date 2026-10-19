@@ -116,8 +116,14 @@ cambio en código todavía.
   share sheet o guardando en `Downloads/NoteThink/`
 - ✓ **Vincular canciones, playlists y albums de Spotify a una nota**
   (paste URL + oEmbed, sin OAuth ni client_id)
-- Exportar carpeta completa a ZIP (vía `archive` — cada nota como PDF
-  + carpeta de imágenes)
+- ✓ Descargar **copia de seguridad ZIP (.zip)** desde Ajustes (cada nota
+  como `.txt`, organizadas por carpeta — raíz para notas sueltas)
+- ✓ Selección múltiple de notas (long-press) con acciones bulk:
+  - **Carpeta**: picker reutilizado, ahora multi (`noteIds: […]`); añade
+    fila "Quitar de carpeta" para sacar el batch
+  - **Papelera**: confirmación única → `softDeleteBulk` (cancela recordatorios)
+  - Toolbar "Seleccionar todas / Ninguna" solo afecta las notas visibles
+    (respeta filtros / carpeta actual)
 
 ### Sesión 2026-10-15 — Fase 4: enlaces de Spotify (paste URL + oEmbed)
 - **Tipo**: track + playlist + album (artist queda fuera del alcance v1).
@@ -175,6 +181,125 @@ cambio en código todavía.
   album, URI spotify:, URL con query params, empty, inválida, artist
   no soportado, trim whitespace). Total: **25 tests pasan**,
   `flutter analyze` sin issues, APK debug compila.
+
+### Sesión 2026-10-19 — Fix: long-press entraba al menú en vez de a selección
+- **Bug reportado**: en device, long-press sobre una nota abría el menú de
+  acciones (comportamiento heredado) en vez de entrar al modo selección.
+  Causa: `_handleLongPress` siempre llamaba a `_showActions(...)` cuando
+  `selection.enabled == false`, ignorando la nueva ruta de selección.
+- **Fix** (`notes_list_screen.dart` + `folder_detail_screen.dart`):
+  `_handleLongPress` ahora delega en `controller.enterWith(note.id)`
+  cuando no se está en selección y delega en `toggle` cuando sí. El menú
+  por nota deja de existir en esas pantallas.
+- **Acceso a las acciones por nota (Fijar / Color / Compartir / Exportar)**:
+  nuevo menú en el AppBar del editor (`_NoteActionsMenu`), entre
+  `Spotify` y `Reminder`, con icono `more_vert`. Comportamiento:
+  - **Fijar / Desfijar**: toggle de `pinned`, snackbar confirmando
+  - **Añadir / Cambiar color** (la etiqueta cambia si la nota ya tiene color):
+    abre `showNoteColorPickerSheet`
+  - **Compartir**: `NoteShare.share`
+  - **Exportar**: `NoteExporter.showExportSheet` (mismo flujo
+    MD / TXT / PDF + Compartir / Guardar en Descargas)
+- **Color picker extraído** a `lib/features/notes/color_picker_sheet.dart`
+  (`showNoteColorPickerSheet(context, ref, note:)`), reusado por la lista,
+  el detalle de carpeta y el editor. Se eliminaron las copias privadas
+  `_ColorSwatch` / `_RemoveColor` / `_pickColor` / `_showActions` /
+  `_showNoteActions` y los imports asociados (`app_colors.dart`,
+  `note_share.dart`, `note_exporter.dart` en las pantallas).
+- **Tests**: 52/52 siguen pasando; `flutter analyze` limpio.
+
+### Sesión 2026-10-19 — Selección múltiple (bulk: carpeta + papelera)
+- **Pedido**: poder seleccionar todas las notas (o unas cuantas) para
+  moverlas a carpeta o a papelera de un solo gesto, sin repetir la
+  acción nota por nota.
+- **`NotesSelectionState`** (`lib/features/notes/notes_selection.dart`):
+  estado inmutable `{enabled, selectedIds}` con `NotesSelectionController`
+  (Notifier) que expone `enter`, `enterWith`, `toggle`, `selectAll`,
+  `clearSelectionKeepingMode`, `exit`. Test pure-Dart (9 casos).
+- **Repositorio**: `NotesRepository.setCategoryBulk(ids, categoryId)` y
+  `softDeleteBulk(ids)` — un único `writeTxn` cada uno, usan
+  `_col.getAll` + `putAll` (mucho más rápido que llamar al método single
+  N veces). Devuelven el número de filas tocadas / los ids borrados
+  respectivamente (sin recompilar la app para UX).
+- **`FolderPickerSheet`**: API cambiada de `noteId` a
+  `noteIds: List<int>` (assert non-empty); cuando el batch trae más de
+  una nota, se quita el check de la fila "actual" (no tiene sentido
+  marcar un folder único cuando hay un set diverso) y se añade una fila
+  superior **"Quitar de carpeta"** (en rojo) que llama a
+  `setCategoryBulk(ids, null)`. El sheet sigue funcionando en single-note
+  (manteniendo el check de "current" y sin la fila extra).
+- **UI selection**:
+  - `NotesListScreen` y `FolderDetailScreen` pasaron a `ConsumerStatefulWidget`.
+  - Long-press en una nota = entra al modo selección con esa nota marcada.
+  - Tap (en modo) = toggle; long-press adicional = toggle también
+    (sustituye al sheet de acciones mientras dure la selección).
+  - AppBar alterna: normal vs **"X seleccionadas"** con close + chip
+    "Todas/Ninguna" (afecta solo las notas VISIBLES, respetando filtros).
+  - BottomNavigationBar nueva: barra inferior con dos `NeuSurface`
+    grandes **"Carpeta"** y **"Papelera"**.
+    - "Carpeta" abre un sheet mini con dos opciones: "Mover N notas a
+      carpeta" → abre el folder picker multi; "Quitar N notas de
+      carpeta" → `setCategoryBulk(null)` directo + snackbar.
+    - "Papelera" → confirm + `softDeleteBulk` + cancela recordatorios
+      de las notas afectadas (`RemindersService.cancel` por id) + snackbar.
+  - `PopScope` en cada pantalla: si se está en selección y el usuario
+    hace back, primero se sale de la selección (no se sale de la pantalla).
+  - `Dismissible` swipe-to-delete **deshabilitado** mientras se está en
+    modo selección (lo controlamos pasando `onSwipeDelete: null`).
+  - **Fix**: el check de selección se renderiza ahora como `Icon(Icons.check_circle)`
+  inline a la izquierda del título (mismo tamaño visual que los otros meta-íconos),
+  empujando el texto a la derecha cuando entra/sale de selección. Antes era un
+  círculo negro absoluto encima de la esquina top-left.
+- **Filtros aplicados**: solo notas visibles / filtradas (no a la DB
+  completa); respeta los chips de Carpeta / Color / Fijadas y los
+  filtros de búsqueda.
+- **Tests**: 9 casos nuevos en `test/notes_selection_test.dart`
+  (estado inicial, enter, enterWith, toggle bidireccional, selectAll,
+  clearKeepingMode, exit, toggle-off-last, no-op empty selectAll).
+  Total: **52 tests pasan**, `flutter analyze` sin issues.
+
+### Sesión 2026-10-19 — Fase 4 (cierre): copia de seguridad ZIP desde Ajustes
+- **Pedido**: poder descargar toda la información de la app en un `.zip` con la
+  misma organización visual que el usuario ve (carpeta → carpeta, notas sueltas → raíz).
+- **`NoteZipExporter`** (`lib/features/notes/note_zip_exporter.dart`):
+  - Construye `Archive` con `package:archive` 4.5.2
+    (ahora declarada como dependencia directa en `pubspec.yaml`).
+  - Layout: carpeta como directorio dentro del zip, nota suelta en la raíz.
+  - Filename del archivo: mismo que `NoteExporter.exportFilename(..., .txt)`
+    → `Título (id).txt` (con saneo de caracteres `\/:*?"<>|` y colapso de
+    puntos al borde) — el id garantiza unicidad global incluso si dos
+    carpetas tuvieran el mismo nombre.
+  - `sanitizeFolderName`: trim, reemplazo de `\\/*?"<>|` → `_`, colapso de
+    puntos al borde, fallback a `"carpeta"`, truncado a 80 chars.
+  - Helpers: `buildArchive`, `encodeArchive`, `writeTempZip`, `share`,
+    `timestampSlug` para el nombre del zip (`notethink-export-YYYY-MM-DD_HHMMSS.zip`).
+- **Repos / DAO**: añadidos `NotesRepository.getAllActive()` y
+  `FoldersRepository.getAll()` (one-shots, equivalente a los streams pero
+  sin suscripción activa — más limpio para una exportación puntual).
+- **`NoteFileSaver.saveBytes({filename, mimeType, bytes})`**: nuevo método
+  genérico que envuelve la misma `MethodChannel('note_think/save_file')`
+  con la que ya cuenta el `save()` individual. Reutiliza la misma
+  permission flow (solo SDK<29) y rethrow de `SaveException`. El `save()`
+  por-nota quedó refactorizado encima del genérico.
+- **Android (`MainActivity.kt`)**: `ensureExtension` ahora reconoce
+  `application/zip` → `.zip`.
+- **UI (`settings_screen.dart`)**: nueva sección **Datos** con la tile
+  **"Descargar copia (.zip)"** → confirma → muestra modal de progreso
+  ("Generando ZIP…") → guarda en `Downloads/NoteThink/` o, en plataformas
+  donde `NoteFileSaver.isAvailable == false`, cae al share sheet con el
+  mismo zip. Snackbars de éxito/error matcheando el patrón del export individual.
+- **Filtros aplicados a la copia**: solo notas activas, no privadas, no en
+  papelera (mismo corte que `watchActive()` + `getAllActive()`). Las
+  carpetas que en realidad son tags (`isTag == true`) no se tratan como
+  carpeta dentro del zip — el exporter las ignora al construir el map.
+- **Tests** (`test/note_zip_exporter_test.dart`): 13 casos nuevos que
+  cubren el saneo de carpetas (caracteres ilegales, puntos al borde,
+  vacío, longitud), la decisión root vs carpeta del `archivePathForNote`
+  (sin folder, con folder, con folder no resuelto, con folder vacío,
+  con título con caracteres ilegales, ignorando tags), el round-trip
+  build→encode→decode con `ZipDecoder` validando magic bytes + paths y
+  el contenido (título + cuerpo), y el `timestampSlug`. Total: 43 tests
+  pasan, `flutter analyze` sin issues, `flutter pub get` OK.
 
 ### Sesión 2026-10-15 — Fase 4: export individual + PDF + guardar en Descargas
 - **Markdown / Texto plano** vía share sheet (suscinto original)
@@ -697,9 +822,7 @@ No indican fallo y no se pueden silenciar desde la app; se filtran con `adb logc
 
 ## Próximos pasos
 
-1. **Fase 4 (continuación)**: export carpeta completa a ZIP con PDF
-   de cada nota + imágenes embebidas
-2. **Extras / Follow-ups de Spotify** (cuando se quiera):
+1. **Extras / Follow-ups de Spotify** (cuando se quiera):
    - Preview de 30s para tracks (OAuth PKCE + Web API + audio SDK)
    - Búsqueda dentro de la app (reemplaza el "paste URL")
 

@@ -20,28 +20,11 @@ class NoteFileSaver {
     return android.version.sdkInt < 29;
   }
 
-  static Future<String> save({
-    required NoteEntity note,
-    required NoteExportFormat format,
-    Uint8List? pdfBytes,
+  static Future<String> saveBytes({
+    required String filename,
+    required String mimeType,
+    required Uint8List bytes,
   }) async {
-    final filename = NoteExporter.exportFilename(note, format);
-    final mimeType = NoteExporter.mimeType(format);
-    final Uint8List bytes;
-    if (format == NoteExportFormat.pdf) {
-      if (pdfBytes == null) {
-        throw const SaveException('Faltan los bytes del PDF para guardar');
-      }
-      bytes = pdfBytes;
-    } else {
-      final text = format == NoteExportFormat.markdown
-          ? NoteExporter.toMarkdown(note)
-          : NoteExporter.toText(note);
-      if (text.isEmpty) {
-        throw const SaveException('La nota no tiene contenido para guardar');
-      }
-      bytes = Uint8List.fromList(text.codeUnits);
-    }
     if (await _needsStoragePermission()) {
       final status = await Permission.storage.request();
       if (!status.isGranted) {
@@ -66,6 +49,31 @@ class NoteFileSaver {
       }
       rethrow;
     }
+  }
+
+  static Future<String> save({
+    required NoteEntity note,
+    required NoteExportFormat format,
+    Uint8List? pdfBytes,
+  }) async {
+    final filename = NoteExporter.exportFilename(note, format);
+    final mimeType = NoteExporter.mimeType(format);
+    final Uint8List bytes;
+    if (format == NoteExportFormat.pdf) {
+      if (pdfBytes == null) {
+        throw const SaveException('Faltan los bytes del PDF para guardar');
+      }
+      bytes = pdfBytes;
+    } else {
+      final text = format == NoteExportFormat.markdown
+          ? NoteExporter.toMarkdown(note)
+          : NoteExporter.toText(note);
+      if (text.isEmpty) {
+        throw const SaveException('La nota no tiene contenido para guardar');
+      }
+      bytes = Uint8List.fromList(text.codeUnits);
+    }
+    return saveBytes(filename: filename, mimeType: mimeType, bytes: bytes);
   }
 
   static bool get isAvailable => Platform.isAndroid && !kIsWeb;

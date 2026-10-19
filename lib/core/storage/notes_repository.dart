@@ -88,6 +88,16 @@ class NotesRepository {
 
   Future<NoteEntity?> getById(int id) => _col.get(id);
 
+  Future<List<NoteEntity>> getAllActive() async {
+    return _col
+        .filter()
+        .deletedAtIsNull()
+        .isPrivateEqualTo(false)
+        .sortByPinnedDesc()
+        .thenByUpdatedAtDesc()
+        .findAll();
+  }
+
   Future<List<NoteEntity>> getActiveWithReminders() async {
     return _col
         .filter()
@@ -114,6 +124,25 @@ class NotesRepository {
     });
   }
 
+  Future<int> setCategoryBulk(List<int> noteIds, int? categoryId) async {
+    if (noteIds.isEmpty) return 0;
+    final now = DateTime.now();
+    return _isar.writeTxn(() async {
+      final notes = await _col.getAll(noteIds);
+      var touched = 0;
+      for (final n in notes) {
+        if (n == null) continue;
+        n.categoryId = categoryId;
+        n.updatedAt = now;
+        touched++;
+      }
+      if (touched > 0) {
+        await _col.putAll(notes.whereType<NoteEntity>().toList());
+      }
+      return touched;
+    });
+  }
+
   Future<void> unsetCategoryForDeleted(int categoryId) async {
     await _isar.writeTxn(() async {
       final notes = await _col
@@ -134,6 +163,25 @@ class NotesRepository {
       n.deletedAt = DateTime.now();
       n.pinned = false;
       await _col.put(n);
+    });
+  }
+
+  Future<List<int>> softDeleteBulk(List<int> ids) async {
+    if (ids.isEmpty) return const <int>[];
+    final now = DateTime.now();
+    return _isar.writeTxn(() async {
+      final notes = await _col.getAll(ids);
+      final touched = <int>[];
+      for (final n in notes) {
+        if (n == null) continue;
+        n.deletedAt = now;
+        n.pinned = false;
+        touched.add(n.id);
+      }
+      if (touched.isNotEmpty) {
+        await _col.putAll(notes.whereType<NoteEntity>().toList());
+      }
+      return touched;
     });
   }
 

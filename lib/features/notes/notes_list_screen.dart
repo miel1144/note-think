@@ -2,420 +2,337 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/theme/app_colors.dart';
 import '../../core/storage/repositories.dart';
 import '../../core/db/models/note.dart';
 import '../../shared/widgets/confirm_dialog.dart';
 import '../../shared/widgets/neu_surface.dart';
 import '../../shared/widgets/note_card.dart';
 import '../folders/folder_picker_sheet.dart';
-import '../private_notes/private_notes_controller.dart';
-import '../reminders/reminder_picker.dart';
 import '../reminders/reminders_service.dart';
 import 'filter_bar.dart';
-import 'note_exporter.dart';
-import 'note_share.dart';
 import 'notes_filter.dart';
 import 'notes_layout.dart';
+import 'notes_providers.dart';
+import 'notes_selection.dart';
 import 'notes_sort.dart';
 
-class NotesListScreen extends ConsumerWidget {
+class NotesListScreen extends ConsumerStatefulWidget {
   const NotesListScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<NotesListScreen> createState() => _NotesListScreenState();
+}
+
+class _NotesListScreenState extends ConsumerState<NotesListScreen> {
+  List<int> _visibleNoteIds = const [];
+
+  @override
+  Widget build(BuildContext context) {
     final notesAsync = ref.watch(displayedNotesProvider);
     final filter = ref.watch(notesFilterProvider);
     final layout = ref.watch(notesLayoutProvider).value ?? NotesLayout.list;
+    final selection = ref.watch(notesSelectionProvider);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('NoteThink'),
-        actions: [
-          NeuIconButton(
-            icon: Icons.search,
-            tooltip: 'Buscar',
-            onPressed: () => context.push('/search'),
-          ),
-          const SizedBox(width: 6),
-          NeuIconButton(
-            icon: layout == NotesLayout.list
-                ? Icons.grid_view_outlined
-                : Icons.view_agenda_outlined,
-            tooltip: layout == NotesLayout.list
-                ? 'Vista en cuadrícula'
-                : 'Vista en lista',
-            onPressed: () =>
-                ref.read(notesLayoutProvider.notifier).toggle(),
-          ),
-          const SizedBox(width: 6),
-          PopupMenuButton<String>(
-            tooltip: 'Más',
-            icon: const Icon(Icons.more_horiz),
-            color: Theme.of(context).colorScheme.surface,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            onSelected: (value) {
-              if (value == 'settings') context.push('/settings');
-            },
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: 'settings', child: Text('Ajustes')),
-            ],
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
-      body: Column(
-        children: [
-          const NotesFilterBar(),
-          Expanded(
-            child: notesAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Text('Error: $e')),
-              data: (notes) {
-                if (notes.isEmpty) {
-                  return filter.hasAny
-                      ? _EmptyFilteredState(
-                          onClear: () =>
-                              ref.read(notesFilterProvider.notifier).clear(),
-                        )
-                      : const _EmptyState();
-                }
-                if (layout == NotesLayout.grid) {
-                  return _NotesGrid(
-                    notes: notes,
-                    onTap: (n) => context.push('/edit/${n.id}'),
-                    onLongPress: (n) => _showActions(context, ref, n),
-                  );
-                }
-                return _NotesList(
-                  notes: notes,
-                  onTap: (n) => context.push('/edit/${n.id}'),
-                  onLongPress: (n) => _showActions(context, ref, n),
-                  onSwipeDelete: (n) async {
-                    await ref.read(notesRepositoryProvider).softDelete(n.id);
-                    if (n.reminderAt != null) {
-                      await RemindersService.instance.cancel(n.id);
+    return PopScope(
+      canPop: !selection.enabled,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        ref.read(notesSelectionProvider.notifier).exit();
+      },
+      child: Scaffold(
+        appBar: selection.enabled
+            ? _buildSelectionAppBar(context, selection)
+            : _buildMainAppBar(context, layout),
+        body: Column(
+          children: [
+            const NotesFilterBar(),
+            Expanded(
+              child: notesAsync.when(
+                loading: () =>
+                    const Center(child: CircularProgressIndicator()),
+                error: (e, _) => Center(child: Text('Error: $e')),
+                data: (notes) {
+                  _visibleNoteIds = notes.map((n) => n.id).toList();
+                  if (notes.isEmpty) {
+                    if (selection.enabled) {
+                      return const _SelectionEmptyState();
                     }
-                  },
-                );
-              },
+                    return filter.hasAny
+                        ? _EmptyFilteredState(
+                            onClear: () => ref
+                                .read(notesFilterProvider.notifier)
+                                .clear(),
+                          )
+                        : const _EmptyState();
+                  }
+                  if (layout == NotesLayout.grid) {
+                    return _NotesGrid(
+                      notes: notes,
+                      selection: selection,
+                      onTap: (n) => _handleTap(n),
+                      onLongPress: (n) => _handleLongPress(n),
+                    );
+                  }
+                  return _NotesList(
+                    notes: notes,
+                    selection: selection,
+                    onTap: (n) => _handleTap(n),
+                    onLongPress: (n) => _handleLongPress(n),
+                    onSwipeDelete: !selection.enabled
+                        ? (n) async {
+                            await ref
+                                .read(notesRepositoryProvider)
+                                .softDelete(n.id);
+                            if (n.reminderAt != null) {
+                              await RemindersService.instance.cancel(n.id);
+                            }
+                          }
+                        : null,
+                  );
+                },
+              ),
             ),
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => context.push('/edit'),
-        child: const Icon(Icons.add),
+          ],
+        ),
+        bottomNavigationBar: selection.enabled
+            ? _SelectionActionBar(
+                count: selection.count,
+                onMoveToFolder: () => _bulkMoveToFolder(),
+                onMoveToTrash: () => _bulkMoveToTrash(),
+              )
+            : null,
+        floatingActionButton: selection.enabled
+            ? null
+            : FloatingActionButton(
+                onPressed: () => context.push('/edit'),
+                child: const Icon(Icons.add),
+              ),
       ),
     );
   }
 
-  void _showActions(BuildContext context, WidgetRef ref, NoteEntity note) {
-    showModalBottomSheet<void>(
+  PreferredSizeWidget _buildMainAppBar(BuildContext context, NotesLayout layout) {
+    return AppBar(
+      title: const Text('NoteThink'),
+      actions: [
+        NeuIconButton(
+          icon: Icons.search,
+          tooltip: 'Buscar',
+          onPressed: () => context.push('/search'),
+        ),
+        const SizedBox(width: 6),
+        NeuIconButton(
+          icon: layout == NotesLayout.list
+              ? Icons.grid_view_outlined
+              : Icons.view_agenda_outlined,
+          tooltip: layout == NotesLayout.list
+              ? 'Vista en cuadrícula'
+              : 'Vista en lista',
+          onPressed: () =>
+              ref.read(notesLayoutProvider.notifier).toggle(),
+        ),
+        const SizedBox(width: 6),
+        PopupMenuButton<String>(
+          tooltip: 'Más',
+          icon: const Icon(Icons.more_horiz),
+          color: Theme.of(context).colorScheme.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          onSelected: (value) {
+            if (value == 'settings') context.push('/settings');
+          },
+          itemBuilder: (_) => const [
+            PopupMenuItem(value: 'settings', child: Text('Ajustes')),
+          ],
+        ),
+        const SizedBox(width: 8),
+      ],
+    );
+  }
+
+  PreferredSizeWidget _buildSelectionAppBar(
+    BuildContext context,
+    NotesSelectionState selection,
+  ) {
+    final allSelected =
+        _visibleNoteIds.isNotEmpty &&
+        _visibleNoteIds.every((id) => selection.contains(id));
+    return AppBar(
+      leading: IconButton(
+        tooltip: 'Salir de selección',
+        icon: const Icon(Icons.close),
+        onPressed: () =>
+            ref.read(notesSelectionProvider.notifier).exit(),
+      ),
+      title: Text(
+        selection.count == 1
+            ? '1 seleccionada'
+            : '${selection.count} seleccionadas',
+      ),
+      actions: [
+        TextButton.icon(
+          onPressed: _visibleNoteIds.isEmpty
+              ? null
+              : () {
+                  final controller =
+                      ref.read(notesSelectionProvider.notifier);
+                  if (allSelected) {
+                    controller.clearSelectionKeepingMode();
+                  } else {
+                    controller.selectAll(_visibleNoteIds);
+                  }
+                },
+          icon: Icon(
+            allSelected
+                ? Icons.deselect_outlined
+                : Icons.select_all_outlined,
+          ),
+          label: Text(allSelected ? 'Ninguna' : 'Todas'),
+        ),
+        const SizedBox(width: 4),
+      ],
+    );
+  }
+
+  void _handleTap(NoteEntity note) {
+    final controller = ref.read(notesSelectionProvider.notifier);
+    if (ref.read(notesSelectionProvider).enabled) {
+      controller.toggle(note.id);
+      return;
+    }
+    context.push('/edit/${note.id}');
+  }
+
+  void _handleLongPress(NoteEntity note) {
+    final controller = ref.read(notesSelectionProvider.notifier);
+    final selection = ref.read(notesSelectionProvider);
+    if (selection.enabled) {
+      controller.toggle(note.id);
+      return;
+    }
+    controller.enterWith(note.id);
+  }
+
+  Future<void> _bulkMoveToFolder() async {
+    final selection = ref.read(notesSelectionProvider);
+    if (selection.isEmpty) return;
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final picked = await showModalBottomSheet<bool>(
       context: context,
+      isScrollControlled: true,
       backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (sheetContext) {
+      builder: (_) {
         return SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               const SizedBox(height: 8),
-              ListTile(
-                leading: Icon(
-                  note.pinned ? Icons.push_pin : Icons.push_pin_outlined,
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.onSurface
+                      .withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(2),
                 ),
-                title: Text(note.pinned ? 'Desfijar' : 'Fijar'),
-                onTap: () {
-                  ref.read(notesRepositoryProvider).togglePin(note.id);
-                  Navigator.pop(sheetContext);
-                },
               ),
-              ListTile(
-                leading: const Icon(Icons.palette_outlined),
-                title: const Text('Cambiar color'),
-                onTap: () {
-                  Navigator.pop(sheetContext);
-                  _pickColor(context, ref, note);
-                },
-              ),
+              const SizedBox(height: 8),
               ListTile(
                 leading: const Icon(Icons.create_new_folder_outlined),
-                title: const Text('Agregar a carpeta'),
-                onTap: () {
-                  Navigator.pop(sheetContext);
-                  showFolderPickerSheet(
-                    context,
-                    ref,
-                    noteId: note.id,
-                    currentCategoryId: note.categoryId,
-                  );
-                },
-              ),
-              if (note.categoryId != null)
-                ListTile(
-                  leading: const Icon(Icons.folder_off_outlined),
-                  title: const Text('Quitar de carpeta'),
-                  onTap: () {
-                    ref
-                        .read(notesRepositoryProvider)
-                        .setCategory(note.id, null);
-                    Navigator.pop(sheetContext);
-                  },
+                title: Text(
+                  selection.count == 1
+                      ? 'Mover 1 nota a carpeta'
+                      : 'Mover ${selection.count} notas a carpeta',
                 ),
-              ListTile(
-                leading: const Icon(Icons.ios_share),
-                title: const Text('Compartir'),
-                onTap: () {
-                  final box = sheetContext.findRenderObject() as RenderBox?;
-                  Navigator.pop(sheetContext);
-                  NoteShare.share(
-                    context,
-                    note,
-                    sharePositionOrigin: box != null
-                        ? box.localToGlobal(Offset.zero) & box.size
-                        : null,
-                  );
-                },
+                onTap: () => Navigator.pop(context, true),
               ),
               ListTile(
-                leading: const Icon(Icons.file_download_outlined),
-                title: const Text('Exportar'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () {
-                  Navigator.pop(sheetContext);
-                  NoteExporter.showExportSheet(context, note);
-                },
-              ),
-              if (ref.watch(privateNotesProvider).hasPassword)
-                ListTile(
-                  leading: Icon(
-                    note.isPrivate ? Icons.lock_open : Icons.lock_outline,
-                  ),
-                  title: Text(
-                    note.isPrivate ? 'Quitar de privadas' : 'Marcar como privada',
-                  ),
-                  onTap: () async {
-                    Navigator.pop(sheetContext);
-                    await ref
-                        .read(notesRepositoryProvider)
-                        .setPrivate(note.id, !note.isPrivate);
-                    if (!note.isPrivate) {
-                      await RemindersService.instance.cancel(note.id);
-                    }
-                  },
+                leading: const Icon(Icons.folder_off_outlined),
+                title: Text(
+                  selection.count == 1
+                      ? 'Quitar 1 nota de carpeta'
+                      : 'Quitar ${selection.count} notas de carpeta',
                 ),
-              if (note.reminderAt == null)
-                ListTile(
-                  leading: const Icon(Icons.notifications_outlined),
-                  title: const Text('Programar recordatorio'),
-                  onTap: () async {
-                    Navigator.pop(sheetContext);
-                    final granted =
-                        await RemindersService.instance.requestPermission();
-                    if (!granted) {
-                      if (!context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Se necesita permiso de notificaciones',
-                          ),
-                        ),
-                      );
-                      return;
-                    }
-                    if (!context.mounted) return;
-                    final when = await showReminderPicker(context);
-                    if (when == null) return;
-                    await ref
-                        .read(notesRepositoryProvider)
-                        .setReminder(note.id, when);
-                    final title = note.title.trim().isEmpty
-                        ? 'Recordatorio'
-                        : note.title.trim();
-                    final body =
-                        RemindersService.instance.firstBodyLine(note.bodyPlain);
-                    await RemindersService.instance.schedule(
-                      noteId: note.id,
-                      when: when,
-                      title: title,
-                      body: body,
-                      isPrivate: note.isPrivate,
-                    );
-                  },
-                )
-              else
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    ListTile(
-                      leading: const Icon(Icons.notifications_active_outlined),
-                      title: const Text('Cambiar recordatorio'),
-                      subtitle: Text(formatReminder(note.reminderAt!)),
-                      onTap: () async {
-                        Navigator.pop(sheetContext);
-                        final when = await showReminderPicker(context);
-                        if (when == null) return;
-                        await ref
-                            .read(notesRepositoryProvider)
-                            .setReminder(note.id, when);
-                        final title = note.title.trim().isEmpty
-                            ? 'Recordatorio'
-                            : note.title.trim();
-                        final body = RemindersService.instance
-                            .firstBodyLine(note.bodyPlain);
-                        await RemindersService.instance.cancel(note.id);
-                        await RemindersService.instance.schedule(
-                          noteId: note.id,
-                          when: when,
-                          title: title,
-                          body: body,
-                          isPrivate: note.isPrivate,
-                        );
-                      },
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.notifications_off_outlined),
-                      title: const Text('Quitar recordatorio'),
-                      onTap: () async {
-                        Navigator.pop(sheetContext);
-                        await ref
-                            .read(notesRepositoryProvider)
-                            .setReminder(note.id, null);
-                        await RemindersService.instance.cancel(note.id);
-                      },
-                    ),
-                  ],
-                ),
-              ListTile(
-                leading: const Icon(Icons.delete_outline),
-                title: const Text('Mover a papelera'),
-                onTap: () async {
-                  Navigator.pop(sheetContext);
-                  final ok = await showConfirmDialog(
-                    context,
-                    icon: Icons.delete_outline,
-                    title: '¿Mover a papelera?',
-                    message:
-                        'Podrás restaurarla desde la papelera durante 30 días. Pasado ese tiempo se eliminará definitivamente.',
-                    confirmLabel: 'Mover',
-                  );
-                  if (ok) {
-                    await ref.read(notesRepositoryProvider).softDelete(note.id);
-                    if (note.reminderAt != null) {
-                      await RemindersService.instance.cancel(note.id);
-                    }
-                  }
-                },
+                onTap: () => Navigator.pop(context, false),
               ),
+              const SizedBox(height: 8),
             ],
           ),
         );
       },
     );
-  }
-
-  void _pickColor(BuildContext context, WidgetRef ref, NoteEntity note) {
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (sheetContext) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Color de la nota',
-                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    for (int i = 0; i < AppColors.noteAccents.length; i++) ...[
-                      _ColorSwatch(
-                        color: AppColors.noteAccents[i],
-                        onTap: () {
-                          ref
-                              .read(notesRepositoryProvider)
-                              .setAccent(note.id, i);
-                          Navigator.pop(sheetContext);
-                        },
-                      ),
-                      if (i < AppColors.noteAccents.length - 1)
-                        const SizedBox(width: 8),
-                    ],
-                    const SizedBox(width: 8),
-                    _RemoveColor(
-                      onTap: () {
-                        ref
-                            .read(notesRepositoryProvider)
-                            .setAccent(note.id, null);
-                        Navigator.pop(sheetContext);
-                      },
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _ColorSwatch extends StatelessWidget {
-  const _ColorSwatch({required this.color, required this.onTap});
-  final Color color;
-  final VoidCallback onTap;
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: AspectRatio(
-        aspectRatio: 1,
-        child: NeuSurface(
-          radius: 18,
-          padding: EdgeInsets.zero,
-          onTap: onTap,
-          child: Container(
-            margin: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(14),
-            ),
+    if (!mounted) return;
+    if (picked == null) return;
+    if (picked) {
+      // Refresh the current category id guess for the picker (use first
+      // selected note's folder as the "current" marker — if all share it).
+      final notes = ref.read(notesListProvider).value ?? const <NoteEntity>[];
+      final ids = selection.selectedIds;
+      final selectedNotes =
+          notes.where((n) => ids.contains(n.id)).toList();
+      final folders = selectedNotes
+          .map((n) => n.categoryId)
+          .toSet();
+      final sharedCategory = folders.length == 1 ? folders.first : null;
+      await showFolderPickerSheet(
+        context,
+        ref,
+        noteIds: selection.selectedIds.toList(),
+        currentCategoryId: sharedCategory,
+      );
+    } else {
+      final repo = ref.read(notesRepositoryProvider);
+      final count = await repo.setCategoryBulk(
+        selection.selectedIds.toList(),
+        null,
+      );
+      ref.read(notesSelectionProvider.notifier).exit();
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            'Sacadas de carpeta: $count',
           ),
         ),
-      ),
-    );
+      );
+    }
   }
-}
 
-class _RemoveColor extends StatelessWidget {
-  const _RemoveColor({required this.onTap});
-  final VoidCallback onTap;
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: AspectRatio(
-        aspectRatio: 1,
-        child: NeuSurface(
-          radius: 18,
-          padding: EdgeInsets.zero,
-          onTap: onTap,
-          child: const Center(child: Icon(Icons.block, size: 22)),
-        ),
-      ),
+  Future<void> _bulkMoveToTrash() async {
+    final selection = ref.read(notesSelectionProvider);
+    if (selection.isEmpty) return;
+    final ok = await showConfirmDialog(
+      context,
+      icon: Icons.delete_outline,
+      title: selection.count == 1
+          ? '¿Mover 1 nota a papelera?'
+          : '¿Mover ${selection.count} notas a papelera?',
+      message:
+          'Podrás restaurarlas desde la papelera durante 30 días. Pasado ese tiempo se eliminarán definitivamente.',
+      confirmLabel: 'Mover',
+    );
+    if (!ok || !mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final repo = ref.read(notesRepositoryProvider);
+    final ids = selection.selectedIds.toList();
+    final notes = ref.read(notesListProvider).value ?? const <NoteEntity>[];
+    final reminderIds = <int>[];
+    for (final n in notes) {
+      if (ids.contains(n.id) && n.reminderAt != null) {
+        reminderIds.add(n.id);
+      }
+    }
+    final moved = await repo.softDeleteBulk(ids);
+    for (final id in reminderIds) {
+      await RemindersService.instance.cancel(id);
+    }
+    ref.read(notesSelectionProvider.notifier).exit();
+    messenger.showSnackBar(
+      SnackBar(content: Text('Movidas a papelera: ${moved.length}')),
     );
   }
 }
@@ -516,19 +433,35 @@ class _EmptyFilteredState extends StatelessWidget {
 class _NotesList extends StatelessWidget {
   const _NotesList({
     required this.notes,
+    required this.selection,
     required this.onTap,
     required this.onLongPress,
     required this.onSwipeDelete,
   });
 
   final List<NoteEntity> notes;
+  final NotesSelectionState selection;
   final void Function(NoteEntity) onTap;
   final void Function(NoteEntity) onLongPress;
-  final Future<void> Function(NoteEntity) onSwipeDelete;
+  final Future<void> Function(NoteEntity)? onSwipeDelete;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    Widget card(NoteEntity n) => NoteCard(
+      note: n,
+      selected: selection.contains(n.id),
+      onTap: () => onTap(n),
+      onLongPress: () => onLongPress(n),
+    );
+    if (onSwipeDelete == null) {
+      return ListView.separated(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
+        itemCount: notes.length,
+        separatorBuilder: (_, _) => const SizedBox(height: 12),
+        itemBuilder: (_, i) => card(notes[i]),
+      );
+    }
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
       itemCount: notes.length,
@@ -572,12 +505,8 @@ class _NotesList extends StatelessWidget {
               confirmLabel: 'Mover',
             );
           },
-          onDismissed: (_) => onSwipeDelete(n),
-          child: NoteCard(
-            note: n,
-            onTap: () => onTap(n),
-            onLongPress: () => onLongPress(n),
-          ),
+          onDismissed: (_) => onSwipeDelete!(n),
+          child: card(n),
         );
       },
     );
@@ -587,11 +516,13 @@ class _NotesList extends StatelessWidget {
 class _NotesGrid extends StatelessWidget {
   const _NotesGrid({
     required this.notes,
+    required this.selection,
     required this.onTap,
     required this.onLongPress,
   });
 
   final List<NoteEntity> notes;
+  final NotesSelectionState selection;
   final void Function(NoteEntity) onTap;
   final void Function(NoteEntity) onLongPress;
 
@@ -609,8 +540,126 @@ class _NotesGrid extends StatelessWidget {
       itemBuilder: (_, i) => NoteCard(
         note: notes[i],
         compact: true,
+        selected: selection.contains(notes[i].id),
         onTap: () => onTap(notes[i]),
         onLongPress: () => onLongPress(notes[i]),
+      ),
+    );
+  }
+}
+
+class _SelectionEmptyState extends StatelessWidget {
+  const _SelectionEmptyState();
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.checklist_outlined,
+              size: 64,
+              color: t.colorScheme.onSurface.withValues(alpha: 0.3),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'No hay notas para seleccionar',
+              style: t.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Sal del modo selección tocando la X de arriba.',
+              textAlign: TextAlign.center,
+              style: t.textTheme.bodyMedium?.copyWith(
+                color: t.colorScheme.onSurface.withValues(alpha: 0.6),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SelectionActionBar extends StatelessWidget {
+  const _SelectionActionBar({
+    required this.count,
+    required this.onMoveToFolder,
+    required this.onMoveToTrash,
+  });
+  final int count;
+  final VoidCallback onMoveToFolder;
+  final VoidCallback onMoveToTrash;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+        child: Row(
+          children: [
+            Expanded(
+              child: NeuSurface(
+                radius: 16,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                onTap: count == 0 ? null : onMoveToFolder,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.create_new_folder_outlined,
+                      color: scheme.onSurface,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Carpeta',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: scheme.onSurface,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: NeuSurface(
+                radius: 16,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                onTap: count == 0 ? null : onMoveToTrash,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.delete_outline,
+                      color: scheme.error,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Papelera',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: scheme.error,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

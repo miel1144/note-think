@@ -10,9 +10,11 @@ import '../categories/categories_providers.dart';
 Future<void> showFolderPickerSheet(
   BuildContext context,
   WidgetRef ref, {
-  required int noteId,
+  required List<int> noteIds,
   int? currentCategoryId,
 }) {
+  assert(noteIds.isNotEmpty, 'noteIds must not be empty');
+  final isBulk = noteIds.length > 1;
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -21,19 +23,22 @@ Future<void> showFolderPickerSheet(
       borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
     ),
     builder: (sheetContext) => _FolderPickerSheet(
-      noteId: noteId,
+      noteIds: noteIds,
       currentCategoryId: currentCategoryId,
+      isBulk: isBulk,
     ),
   );
 }
 
 class _FolderPickerSheet extends ConsumerStatefulWidget {
   const _FolderPickerSheet({
-    required this.noteId,
+    required this.noteIds,
     required this.currentCategoryId,
+    required this.isBulk,
   });
-  final int noteId;
+  final List<int> noteIds;
   final int? currentCategoryId;
+  final bool isBulk;
 
   @override
   ConsumerState<_FolderPickerSheet> createState() => _FolderPickerSheetState();
@@ -80,10 +85,14 @@ class _FolderPickerSheetState extends ConsumerState<_FolderPickerSheet> {
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Row(
                   children: [
-                    Text(
-                      'Agregar a carpeta',
-                      style: Theme.of(context).textTheme.titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w700),
+                    Expanded(
+                      child: Text(
+                        widget.isBulk
+                            ? 'Mover ${widget.noteIds.length} notas a carpeta'
+                            : 'Agregar a carpeta',
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
                     ),
                   ],
                 ),
@@ -127,12 +136,22 @@ class _FolderPickerSheetState extends ConsumerState<_FolderPickerSheet> {
                   error: (e, _) => Center(child: Text('Error: $e')),
                   data: (list) {
                     final filtered = _filter(list, _query);
+                    final showUnset = widget.isBulk
+                        ? widget.currentCategoryId != null
+                        : widget.currentCategoryId != null;
+                    final unsetTile = showUnset
+                        ? _UnsetFolderRow(
+                            onTap: () => _assign(context, null),
+                          )
+                        : null;
+                    final extraSlots = unsetTile == null ? 0 : 1;
                     return ListView.separated(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 20,
                         vertical: 8,
                       ),
-                      itemCount: filtered.length + 1,
+                      itemCount:
+                          filtered.length + 1 + extraSlots,
                       separatorBuilder: (_, _) => const SizedBox(height: 6),
                       itemBuilder: (_, i) {
                         if (i == 0) {
@@ -141,10 +160,14 @@ class _FolderPickerSheetState extends ConsumerState<_FolderPickerSheet> {
                             onCreate: () => _createAndAssign(context),
                           );
                         }
-                        final f = filtered[i - 1];
+                        if (unsetTile != null && i == 1) {
+                          return unsetTile;
+                        }
+                        final f = filtered[i - 1 - extraSlots];
                         return _FolderRow(
                           folder: f,
-                          selected: f.id == widget.currentCategoryId,
+                          selected: !widget.isBulk &&
+                              f.id == widget.currentCategoryId,
                           onTap: () => _assign(context, f.id),
                         );
                       },
@@ -175,10 +198,9 @@ class _FolderPickerSheetState extends ConsumerState<_FolderPickerSheet> {
         : suggested;
     if (name == null || name.isEmpty) return;
     final repo = ref.read(foldersRepositoryProvider);
-    final notes = ref.read(notesRepositoryProvider);
     final newId = await repo.create(name);
     if (newId == Isar.autoIncrement) return;
-    await notes.setCategory(widget.noteId, newId);
+    await _applyAssign(newId);
     if (context.mounted) Navigator.pop(context);
   }
 
@@ -208,11 +230,18 @@ class _FolderPickerSheetState extends ConsumerState<_FolderPickerSheet> {
     );
   }
 
-  Future<void> _assign(BuildContext context, int folderId) async {
-    await ref
-        .read(notesRepositoryProvider)
-        .setCategory(widget.noteId, folderId);
+  Future<void> _assign(BuildContext context, int? folderId) async {
+    await _applyAssign(folderId);
     if (context.mounted) Navigator.pop(context);
+  }
+
+  Future<void> _applyAssign(int? folderId) async {
+    final notes = ref.read(notesRepositoryProvider);
+    if (widget.noteIds.length == 1) {
+      await notes.setCategory(widget.noteIds.first, folderId);
+    } else {
+      await notes.setCategoryBulk(widget.noteIds, folderId);
+    }
   }
 }
 
@@ -304,6 +333,50 @@ class _FolderRow extends StatelessWidget {
               style: TextStyle(
                 fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                 fontSize: 15,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _UnsetFolderRow extends StatelessWidget {
+  const _UnsetFolderRow({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final error = theme.colorScheme.error;
+    return NeuSurface(
+      radius: 14,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      onTap: onTap,
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: error.withValues(alpha: 0.10),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.folder_off_outlined,
+              color: error,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Quitar de carpeta',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 15,
+                color: error,
               ),
             ),
           ),

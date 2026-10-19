@@ -17,6 +17,10 @@ class FoldersRepository {
 
   Future<CategoryEntity?> getById(int id) => _col.get(id);
 
+  Future<List<CategoryEntity>> getAll() async {
+    return _col.where().sortByName().findAll();
+  }
+
   Future<int> create(String name) async {
     final trimmed = name.trim();
     if (trimmed.isEmpty) return Isar.autoIncrement;

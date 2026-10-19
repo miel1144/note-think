@@ -14,12 +14,14 @@ class NoteCard extends ConsumerWidget {
     required this.onTap,
     this.onLongPress,
     this.compact = false,
+    this.selected = false,
   });
 
   final NoteEntity note;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
   final bool compact;
+  final bool selected;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -52,6 +54,15 @@ class NoteCard extends ConsumerWidget {
             children: [
               Row(
                 children: [
+                  if (selected)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: Icon(
+                        Icons.check_circle,
+                        size: compact ? 14 : 16,
+                        color: theme.colorScheme.onSurface,
+                      ),
+                    ),
                   if (note.pinned)
                     Padding(
                       padding: const EdgeInsets.only(right: 6),

@@ -20,6 +20,9 @@ import '../reminders/reminders_service.dart';
 import '../spotify/add_spotify_link_dialog.dart';
 import '../spotify/spotify_link_carousel.dart';
 import '../spotify/spotify_providers.dart';
+import 'color_picker_sheet.dart';
+import 'note_exporter.dart';
+import 'note_share.dart';
 
 enum SaveStatus { pristine, dirty, saving, saved, error }
 
@@ -270,6 +273,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         actions: [
           if (widget.noteId != null) const _SpotifyMenu(),
           if (widget.noteId != null) const _ReminderMenu(),
+          if (widget.noteId != null) const _NoteActionsMenu(),
           _SaveIndicator(
             status: _status,
             onTap: _status == SaveStatus.saving ? null : _performSave,
@@ -533,6 +537,103 @@ class CurrentEditorNoteIdController extends Notifier<int?> {
 
   void set(int? id) {
     state = id;
+  }
+}
+
+class _NoteActionsMenu extends ConsumerWidget {
+  const _NoteActionsMenu();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final noteId = ref.read(currentEditorNoteIdProvider);
+    if (noteId == null) return const SizedBox.shrink();
+    final noteAsync = ref.watch(_currentNoteProvider(noteId));
+    final note = noteAsync.value;
+    final hasColor = note?.accentHex != null;
+    return PopupMenuButton<String>(
+      tooltip: 'Más acciones',
+      icon: const Icon(Icons.more_vert),
+      color: Theme.of(context).colorScheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      onSelected: (value) async {
+        if (note == null) return;
+        switch (value) {
+          case 'pin':
+            await ref.read(notesRepositoryProvider).togglePin(note.id);
+            if (!context.mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  note.pinned ? 'Nota desfijada' : 'Nota fijada',
+                ),
+              ),
+            );
+            break;
+          case 'color':
+            await showNoteColorPickerSheet(context, ref, note: note);
+            break;
+          case 'share':
+            await NoteShare.share(context, note);
+            break;
+          case 'export':
+            await NoteExporter.showExportSheet(context, note);
+            break;
+        }
+      },
+      itemBuilder: (_) {
+        if (note == null) return const [];
+        return [
+          PopupMenuItem(
+            value: 'pin',
+            child: Row(
+              children: [
+                Icon(
+                  note.pinned ? Icons.push_pin : Icons.push_pin_outlined,
+                  size: 18,
+                ),
+                const SizedBox(width: 10),
+                Text(note.pinned ? 'Desfijar' : 'Fijar'),
+              ],
+            ),
+          ),
+          PopupMenuItem(
+            value: 'color',
+            child: Row(
+              children: [
+                Icon(
+                  hasColor ? Icons.palette : Icons.palette_outlined,
+                  size: 18,
+                ),
+                const SizedBox(width: 10),
+                Text(hasColor ? 'Cambiar color' : 'Añadir color'),
+              ],
+            ),
+          ),
+          const PopupMenuItem(
+            value: 'share',
+            child: Row(
+              children: [
+                Icon(Icons.ios_share, size: 18),
+                SizedBox(width: 10),
+                Text('Compartir'),
+              ],
+            ),
+          ),
+          const PopupMenuItem(
+            value: 'export',
+            child: Row(
+              children: [
+                Icon(Icons.file_download_outlined, size: 18),
+                SizedBox(width: 10),
+                Text('Exportar'),
+              ],
+            ),
+          ),
+        ];
+      },
+    );
   }
 }
 

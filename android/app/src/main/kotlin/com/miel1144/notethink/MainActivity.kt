@@ -97,6 +97,7 @@ class MainActivity : FlutterActivity() {
             "text/markdown" -> "md"
             "text/plain" -> "txt"
             "application/pdf" -> "pdf"
+            "application/zip" -> "zip"
             "image/png" -> "png"
             "image/jpeg" -> "jpg"
             else -> "bin"
