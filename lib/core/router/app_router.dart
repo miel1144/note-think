@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/categories/categories_screen.dart';
 import '../../features/folders/folder_detail_screen.dart';
+import '../../features/import/bulk_import_screen.dart';
 import '../../features/notes/editor_screen.dart';
 import '../../features/notes/notes_list_screen.dart';
 import '../../features/private_notes/private_notes_screen.dart';
@@ -79,6 +80,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/settings',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (_, _) => const SettingsScreen(),
+      ),
+      GoRoute(
+        path: '/import',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (_, _) => const BulkImportScreen(),
       ),
     ],
   );

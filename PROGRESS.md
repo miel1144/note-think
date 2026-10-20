@@ -122,11 +122,14 @@ siendo viables pero quedan como respaldo.
 - ✓ Descargar **copia de seguridad ZIP (.zip)** desde Ajustes (cada nota
   como `.txt`, organizadas por carpeta — raíz para notas sueltas)
 - ✓ Selección múltiple de notas (long-press) con acciones bulk:
-  - **Carpeta**: picker reutilizado, ahora multi (`noteIds: […]`); añade
-    fila "Quitar de carpeta" para sacar el batch
-  - **Papelera**: confirmación única → `softDeleteBulk` (cancela recordatorios)
-  - Toolbar "Seleccionar todas / Ninguna" solo afecta las notas visibles
-    (respeta filtros / carpeta actual)
+    - **Carpeta**: picker reutilizado, ahora multi (`noteIds: […]`); añade
+      fila "Quitar de carpeta" para sacar el batch
+    - **Papelera**: confirmación única → `softDeleteBulk` (cancela recordatorios)
+    - Toolbar "Seleccionar todas / Ninguna" solo afecta las notas visibles
+      (respeta filtros / carpeta actual)
+- ✓ **Import masivo por pegado** desde Ajustes → Datos, con soporte de
+  fecha real por nota (`[YYYY-MM-DD HH:MM]`, `# …` o línea suelta) y
+  fallback a la fecha del import cuando no se indica
 
 ### Sesión 2026-10-15 — Fase 4: enlaces de Spotify (paste URL + oEmbed)
 - **Tipo**: track + playlist + album (artist queda fuera del alcance v1).
@@ -184,6 +187,69 @@ siendo viables pero quedan como respaldo.
   album, URI spotify:, URL con query params, empty, inválida, artist
   no soportado, trim whitespace). Total: **25 tests pasan**,
   `flutter analyze` sin issues, APK debug compila.
+
+### Sesión 2026-10-19 — Import masivo por pegado (migrar desde otra app)
+- **Pedido**: la app de origen no permite exportar, así que hay que
+  copiar/pegar a mano — pero hay que **conservar la fecha real** de cada
+  nota, no la del día en que se pega.
+- **`PasteImportParser`** (`lib/features/import/paste_import_parser.dart`,
+  puro Dart, sin Flutter):
+  - `parse(String) -> PasteImportParseResult` con
+    `List<ParsedImportBlock>`.
+  - **Separadores**: una línea en blanco **o** una línea `---` cortan
+    bloque. Estricto a propósito — al pegar de otra app lo natural es
+    "una nota por bloque separado por línea en blanco".
+  - **Prefijo de fecha opcional** en la primera línea no vacía del
+    bloque, con 3 formatos aceptados:
+    - `[2025-08-15 14:30]` (recomendado, entre corchetes)
+    - `# 2025-08-15 14:30` (estilo markdown)
+    - `2025-08-15 14:30` (línea suelta)
+    Sin prefijo → `createdAt = now()` (momento del import).
+  - **Fecha `HH:MM` y `HH:MM:SS` opcionales**; validación estricta
+    (rango mes 1-12, día 1-31, hora 0-23, min/seg 0-59) + round-trip
+    contra `DateTime` para rechazar la normalización silenciosa de
+    Dart (`2025-13-45` se parsea como `2026-02-14` en `DateTime.parse`,
+    así que un `try/catch` no alcanza — hay que chequear rangos).
+  - Título = primera línea no vacía del body, colapsada a 1 espacio y
+    truncada a 80 chars (mismo criterio que `NoteExporter._safeFileBase`).
+  - `bodyDelta` = Quill delta con un `insert` por línea
+    (`{"insert": "line\n"}`) — sin formato (negrita/cursiva no se
+    reconstruyen desde texto plano).
+  - Línea con `[fecha]` inválida → `warning` en el bloque, se usa la
+    fecha por defecto en vez de fallar el import entero.
+- **`BulkImportScreen`** (`lib/features/import/bulk_import_screen.dart`):
+  ruta top-level `/import` (sin bottom nav, `parentNavigatorKey` root).
+  - TextField monoespaciado multilínea, recalcula el parse en cada
+    `onChanged`.
+  - Card de formato de ejemplo arriba (colapsable con la X).
+  - Vista previa en vivo: una card por bloque con índice, título,
+    fecha detectada (icono `event` si es explícita, `event_busy` si es
+    la de ahora), preview del body (3 líneas), y banner rojo si hay
+    warning.
+  - Barra inferior con el CTA "Importar N notas" (NeuSurface, spinner
+    mientras corre). Al terminar: snackbar con el conteo real de
+    `bulkInsert` y `context.pop()`.
+- **Repositorio** (`NotesRepository`):
+  - `upsert(NoteEntity, {DateTime? createdAt})` — la firma ya acepta la
+    fecha; el body es idéntico al anterior cuando no se pasa el arg.
+  - `bulkInsert(List<NoteEntity>)` — un solo `writeTxn` con `putAll`,
+    devuelve el conteo. **No toca fechas**: el caller las setea (el
+    import calcula `createdAt`/`updatedAt` por bloque antes de llamar).
+  - `updatedAt = createdAt` en las notas importadas, así la card no
+    muestra "editada X" en una nota que recién se migró.
+- **UI**: tile nuevo en Ajustes → sección "Datos" → "Importar notas
+  pegadas" (icono `content_paste_go_outlined`), debajo del de ZIP.
+- **Limitaciones documentadas**: el texto plano pegado no puede
+  reconstruir imágenes inline ni formato Quill (negritas, links
+  autolinkean pero no se preservan como atributos).
+- **Tests** (`test/paste_import_parser_test.dart`): **20 casos** —
+  separadores (`---`, línea en blanco simple, múltiples), los 3
+  formatos de fecha, fecha sin hora, con segundos, fecha inválida
+  (warning, no crash), inferencia de título (primera línea, truncado
+  80, placeholder "Nota importada", body vacío), `bodyPlain` /
+  `bodyDelta`, y un end-to-end de 4 bloques mezclando los 3 formatos de
+  fecha + uno sin fecha. Total del proyecto: **72 tests pasan**,
+  `flutter analyze` sin issues.
 
 ### Sesión 2026-10-19 — Fix: long-press entraba al menú en vez de a selección
 - **Bug reportado**: en device, long-press sobre una nota abría el menú de
@@ -352,6 +418,14 @@ siendo viables pero quedan como respaldo.
   `androidScheduleMode` (probable `exactAllowWhileIdle` + pedir
   `SCHEDULE_EXACT_ALARM` desde Ajustes del sistema) si la imprecisión
   de Doze resulta molesta — listado en Próximos pasos.
+- **Backdate manual en el editor** — la UI de import ya cubre la
+  migración masiva con fecha real por nota, pero no hay forma de
+  corregir la fecha de UNA nota puntual desde `EditorScreen`. Candidato
+  a tile "Fecha de creación" con date+time picker.
+- **Ajuste de separadores en el import** — hoy línea en blanco y `---`
+  cortan bloque por igual (modo estricto). Si al pegar desde otra app
+  las notas tienen párrafos internos, haría falta un toggle "modo
+  párrafo" (línea en blanco = salto dentro de la nota, `---` = corte).
 - Widget Android (atajo en home screen)
 
 ### Descartado a propósito (mantener simple)

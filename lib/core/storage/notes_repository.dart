@@ -106,13 +106,28 @@ class NotesRepository {
         .findAll();
   }
 
-  Future<int> upsert(NoteEntity note) async {
-    note.updatedAt = DateTime.now();
+  Future<int> upsert(
+    NoteEntity note, {
+    DateTime? createdAt,
+  }) async {
+    final when = createdAt ?? DateTime.now();
+    note.updatedAt = when;
     if (note.id == Isar.autoIncrement) {
-      note.createdAt = note.updatedAt;
+      note.createdAt = when;
     }
     return _isar.writeTxn(() => _col.put(note));
   }
+
+  /// Inserts a batch of NEW notes in a single writeTxn. The caller is
+/// responsible for setting `createdAt` and `updatedAt` on every entry
+/// (for new notes, `id` must remain `Isar.autoIncrement`).
+Future<int> bulkInsert(List<NoteEntity> notes) async {
+  if (notes.isEmpty) return 0;
+  return _isar.writeTxn(() async {
+    final ids = await _col.putAll(notes);
+    return ids.length;
+  });
+}
 
   Future<void> setCategory(int noteId, int? categoryId) async {
     await _isar.writeTxn(() async {

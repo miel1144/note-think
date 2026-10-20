@@ -51,6 +51,8 @@ class SettingsScreen extends ConsumerWidget {
           const SizedBox(height: 24),
           const _SectionLabel('Datos'),
           const _ExportZipTile(),
+          const SizedBox(height: 8),
+          const _ImportPasteTile(),
           const SizedBox(height: 24),
           const _SectionLabel('Notas privadas'),
           _PrivateNotesTile(state: privateState),
@@ -420,5 +422,20 @@ class _ProgressCloser {
     if (Navigator.of(c, rootNavigator: true).canPop()) {
       Navigator.of(c, rootNavigator: true).pop();
     }
+  }
+}
+
+class _ImportPasteTile extends StatelessWidget {
+  const _ImportPasteTile();
+  @override
+  Widget build(BuildContext context) {
+    return _SettingTile(
+      title: 'Importar notas pegadas',
+      subtitle:
+          'Pegá texto plano desde otra app; opcional con fecha real por nota',
+      leading: Icons.content_paste_go_outlined,
+      trailing: const Icon(Icons.chevron_right, size: 20),
+      onTap: () => context.push('/import'),
+    );
   }
 }
