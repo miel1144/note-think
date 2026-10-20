@@ -35,15 +35,17 @@ class PasteImportParseResult {
 
 /// Parses pasted plain text into one or more `ParsedImportBlock`s.
 ///
-/// Block separation rules (intentionally strict for predictable bulk import):
-/// - **Both `---` (on its own line) AND any blank line are block
-///   separators.** This matches the intuitive workflow of pasting notes
-///   from another app: each note ends with a blank line, and `---` is
-///   offered as an explicit alternative.
-/// - To get a multi-paragraph note, use `---` as a "visual delimiter"
-///   in the body — but it's NOT a separator; it's just literal `---`
-///   text. (Note: there's no current way to keep multi-paragraph notes
-///   in this strict mode. If needed later, we can add a setting.)
+/// Block separation rules:
+/// - **Only a line with 5 or more hyphens (`-----`) separates notes.**
+///   Fewer hyphens (`---`, the markdown horizontal rule, or `----`) stay
+///   in the body as literal text, so notes that contain markdown
+///   decoration don't get split by accident.
+/// - **Blank lines never split a note** — they're paragraph breaks and
+///   are preserved as-is in the body. This is what makes it safe to
+///   paste a multi-paragraph note straight out of another app.
+///
+/// A trailing `-----` just terminates the last note; the empty block
+/// after it is discarded (no phantom note is created).
 ///
 /// Supported date prefixes (case-sensitive, on the first non-empty line):
 /// - `[YYYY-MM-DD HH:MM]` (most explicit, recommended)
@@ -59,8 +61,7 @@ class PasteImportParseResult {
 class PasteImportParser {
   PasteImportParser._();
 
-  static final RegExp _separatorLine = RegExp(r'^\s*---\s*$');
-  static final RegExp _blankLine = RegExp(r'^\s*$');
+  static final RegExp _separatorLine = RegExp(r'^\s*-{5,}\s*$');
 
   static final List<RegExp> _datePatterns = [
     RegExp(
@@ -145,6 +146,8 @@ class PasteImportParser {
     var current = <String>[];
 
     void flush() {
+      // Only trim the edges so a body keeps its internal blank lines
+      // (they're paragraph breaks, not separators).
       while (current.isNotEmpty && current.last.trim().isEmpty) {
         current.removeLast();
       }
@@ -158,10 +161,6 @@ class PasteImportParser {
 
     for (final line in lines) {
       if (_separatorLine.hasMatch(line)) {
-        flush();
-        continue;
-      }
-      if (_blankLine.hasMatch(line)) {
         flush();
         continue;
       }

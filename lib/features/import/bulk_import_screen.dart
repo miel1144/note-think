@@ -117,7 +117,7 @@ class _BulkImportScreenState extends ConsumerState<BulkImportScreen> {
                       ),
                       decoration: const InputDecoration(
                         hintText:
-                            'Pegá acá tus notas separadas por una línea --- o dos blancos seguidos…',
+                            'Pegá acá tus notas. Separá cada una con una línea de 5 guiones (-----).',
                         border: InputBorder.none,
                         focusedBorder: InputBorder.none,
                         enabledBorder: InputBorder.none,
@@ -246,22 +246,29 @@ class _FormatHint extends StatelessWidget {
             Text(
               'Cada nota puede empezar con su fecha real entre corchetes '
               '[YYYY-MM-DD HH:MM] (opcional). Si no la ponés, usamos la '
-              'fecha en que se ejecuta el import. Separá las notas con '
-              'una línea en blanco o con --- entre ellas.',
+              'fecha en que se ejecuta el import.\n\n'
+              'Las notas se separan con una línea de 5 guiones o más '
+              '(-----). Las líneas en blanco NO cortan nota: son saltos '
+              'de párrafo dentro de la misma nota.',
               style: TextStyle(color: muted, fontSize: 12),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 8),
             Text(
               '[2025-08-15 14:30]\n'
-              'Esta es una nota.\n'
+              'Primera nota, con fecha real.\n'
               '\n'
-              '---\n'
+              'Este párrafo sigue siendo\n'
+              'de la misma nota.\n'
+              '\n'
+              '-----\n'
               '\n'
               '2025-08-20 09:15\n'
-              'Otra nota, también con fecha explícita.\n'
+              'Segunda nota, también con fecha.\n'
               '\n'
-              'Una nota sin fecha explícita.\n'
-              '(Queda con la fecha del import.)',
+              '-----\n'
+              '\n'
+              'Tercera nota sin fecha.\n'
+              '(Queda con la del import.)',
               style: const TextStyle(
                 fontFamily: 'monospace',
                 fontSize: 11,

@@ -196,9 +196,18 @@ siendo viables pero quedan como respaldo.
   puro Dart, sin Flutter):
   - `parse(String) -> PasteImportParseResult` con
     `List<ParsedImportBlock>`.
-  - **Separadores**: una línea en blanco **o** una línea `---` cortan
-    bloque. Estricto a propósito — al pegar de otra app lo natural es
-    "una nota por bloque separado por línea en blanco".
+  - **Separadores (revisado 2026-10-20)**: **solo una línea de 5 guiones
+    o más (`-----`) corta nota**. Las líneas en blanco **NO** cortan —
+    son saltos de párrafo dentro de la misma nota. El razonamiento: el
+    modo anterior (línea en blanco = separador) partía en varias las
+    notas con párrafos internos, que es justo lo que uno pega al
+    migrar de otra app. Y `---` (3 guiones, la regla horizontal de
+    markdown) queda **como texto** para no partir una nota que tenga
+    decoración markdown. `----` (4) tampoco corta.
+    - 5+ corta, incluidos espacios alrededor: `-----`, `------`, `  ----  `.
+    - Un `-----` al final simplemente termina la última nota; el bloque
+      vacío posterior se descarta (no crea nota fantasma).
+    - `-----` al inicio tampoco crea una nota vacía.
   - **Prefijo de fecha opcional** en la primera línea no vacía del
     bloque, con 3 formatos aceptados:
     - `[2025-08-15 14:30]` (recomendado, entre corchetes)
@@ -242,13 +251,16 @@ siendo viables pero quedan como respaldo.
 - **Limitaciones documentadas**: el texto plano pegado no puede
   reconstruir imágenes inline ni formato Quill (negritas, links
   autolinkean pero no se preservan como atributos).
-- **Tests** (`test/paste_import_parser_test.dart`): **20 casos** —
-  separadores (`---`, línea en blanco simple, múltiples), los 3
-  formatos de fecha, fecha sin hora, con segundos, fecha inválida
-  (warning, no crash), inferencia de título (primera línea, truncado
-  80, placeholder "Nota importada", body vacío), `bodyPlain` /
-  `bodyDelta`, y un end-to-end de 4 bloques mezclando los 3 formatos de
-  fecha + uno sin fecha. Total del proyecto: **72 tests pasan**,
+- **Tests** (`test/paste_import_parser_test.dart`): **29 casos** —
+  separadores (`-----`, 6+ guiones, con espacios alrededor, `---` y
+  `----` que NO cortan, blancos internos que NO cortan, `-----` al
+  inicio y al final sin nota fantasma, nota multipárrafo intacta),
+  los 3 formatos de fecha, fecha con línea en blanco antes del body,
+  hora fuera de rango (rechazada), fecha inválida (warning, no crash),
+  inferencia de título (primera línea, truncado 80, placeholder "Nota
+  importada", body vacío), `bodyPlain` / `bodyDelta`, y dos
+  end-to-end mezclando los 3 formatos de fecha. Total del proyecto:
+  **81 tests pasan**,
   `flutter analyze` sin issues.
 
 ### Sesión 2026-10-19 — Fix: long-press entraba al menú en vez de a selección
@@ -422,10 +434,10 @@ siendo viables pero quedan como respaldo.
   migración masiva con fecha real por nota, pero no hay forma de
   corregir la fecha de UNA nota puntual desde `EditorScreen`. Candidato
   a tile "Fecha de creación" con date+time picker.
-- **Ajuste de separadores en el import** — hoy línea en blanco y `---`
-  cortan bloque por igual (modo estricto). Si al pegar desde otra app
-  las notas tienen párrafos internos, haría falta un toggle "modo
-  párrafo" (línea en blanco = salto dentro de la nota, `---` = corte).
+- **Detección automática de pasted blocks** — hoy el usuario tiene que
+  tipear `-----` a mano entre notas. Si la app de origen tiene un
+  patrón reconocible (prefijo de fecha consistente, largo fijo, etc.),
+  se podría inferir el corte y previsualizar antes de importar.
 - Widget Android (atajo en home screen)
 
 ### Descartado a propósito (mantener simple)
